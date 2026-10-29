@@ -110,9 +110,15 @@ npm run dev                 # http://localhost:4000
 ```bash
 cd frontend
 npm install
-cp .env.example .env        # VITE_API_URL=http://localhost:4000/api/v1
+cp .env.example .env        # keep VITE_API_URL relative (/api/v1)
 npm run dev                 # http://localhost:5173
 ```
+
+`vite.config.ts` proxies `/api` to `http://localhost:4000`, so browser requests stay
+same-origin and are not blocked by `connect-src 'self'`. Override the target with
+`API_PROXY_TARGET` if the API runs elsewhere. Avoid hardcoding an absolute API URL in
+`VITE_API_URL` unless you intentionally bypass the proxy: the production CSP only allows
+same-origin connections.
 
 ### 3. Supabase mirror (optional)
 
@@ -182,7 +188,9 @@ Generate the base64 key values after `npm run generate-keys`:
 
 `JWT_PRIVATE_KEY_BASE64` and `JWT_PUBLIC_KEYS_BASE64` take precedence over the local key paths. Do
 not set `VITE_API_URL` on Vercel: the SPA defaults to the same-origin `/api/v1` path, which the
-top-level rewrite sends to the backend. Apply the Supabase schemas separately with the
+top-level rewrite sends to the backend. The production CSP therefore keeps
+`connect-src 'self'`; no production API domain is needed. Localhost API origins are added to the
+CSP only when `APP_ENV` is `development` or `test`. Apply the Supabase schemas separately with the
 `apply:progress-schema` / `apply:learning-schema` scripts; they are not part of the Vercel build.
 
 Services mode requires a services-capable Vercel CLI (65.7.0 or newer). Run both services locally

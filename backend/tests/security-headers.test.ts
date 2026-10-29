@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import request from 'supertest'
 import { createApp } from '../src/create-app.js'
+import { spaConnectSources } from '../src/security/headers.js'
 
 const app = createApp()
 
@@ -51,5 +52,18 @@ describe('content security policy', () => {
     expect(apiCsp.get('default-src')).toEqual(["'none'"])
     expect(apiCsp.has('script-src')).toBe(false)
     expect(apiCsp.has('frame-src')).toBe(false)
+  })
+
+  it('allows the local API only outside production', () => {
+    expect(spaConnectSources('development', 4321)).toEqual([
+      "'self'",
+      'http://localhost:4321',
+      'ws://localhost:4321',
+      'http://127.0.0.1:4321',
+      'ws://127.0.0.1:4321'
+    ])
+    expect(spaConnectSources('test', 4321)).toContain('http://localhost:4321')
+    expect(spaConnectSources('staging', 4321)).toEqual(["'self'"])
+    expect(spaConnectSources('production', 4321)).toEqual(["'self'"])
   })
 })
