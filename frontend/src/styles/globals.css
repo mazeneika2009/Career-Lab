@@ -1,0 +1,307 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-primary: #173f35;
+  --color-primary-dark: #214d41;
+  --color-secondary-dark: #2c5d4f;
+  --color-bg: #f7f1e3;
+  --color-surface: #fffdf7;
+  --color-accent: #e76f3c;
+  --color-success: #8fb996;
+  --color-warning: #d9a441;
+  --color-attention: #c96b5b;
+  --color-error: #c94c4c;
+  --color-info: #527568;
+  --color-border: #ddd2bd;
+
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    scroll-behavior: smooth;
+    scroll-padding-top: 5.5rem;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-primary);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  /* Media can never force a horizontal scrollbar, and replaced elements keep
+     their intrinsic ratio while fitting their fluid containers. */
+  img,
+  video,
+  iframe,
+  canvas,
+  svg {
+    max-width: 100%;
+  }
+
+  iframe {
+    border: 0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+    letter-spacing: -0.022em;
+  }
+
+  input,
+  textarea,
+  select {
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease,
+      background-color 160ms ease;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-accent) 70%, transparent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-accent) 25%, transparent);
+  }
+
+  /* Scrollbars are hidden throughout the platform, but every container keeps
+     its native wheel, touch, keyboard and trackpad scrolling behaviour. */
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Motion — short, state-led transitions (route enter, hover feedback).
+   All animation collapses under prefers-reduced-motion below.
+   -------------------------------------------------------------------------- */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes drawer-in {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes drawer-right-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.page-enter {
+  animation: page-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.drawer-enter {
+  animation: drawer-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.drawer-right-enter {
+  animation: drawer-right-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.overlay-enter {
+  animation: overlay-in 180ms ease-out both;
+}
+
+.toast-enter {
+  animation: toast-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Explicit utility for scroll surfaces that also need momentum scrolling.
+   The global rules above already hide the scrollbar everywhere. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Soft ambient glow for editorial hero surfaces. */
+.hero-glow::before,
+.hero-glow::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  border-radius: 9999px;
+  filter: blur(70px);
+}
+
+.hero-glow::before {
+  top: -8rem;
+  left: 30rem;
+  height: 24rem;
+  width: 24rem;
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+}
+
+.hero-glow::after {
+  bottom: -12rem;
+  left: -4rem;
+  height: 26rem;
+  width: 26rem;
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+}
+
+.auth-glow::before,
+.auth-glow::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  border-radius: 9999px;
+  filter: blur(70px);
+}
+
+.auth-glow::before {
+  top: -8rem;
+  right: -6rem;
+  height: 22rem;
+  width: 22rem;
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.auth-glow::after {
+  bottom: -12rem;
+  left: -8rem;
+  height: 26rem;
+  width: 26rem;
+  background: color-mix(in srgb, var(--color-success) 13%, transparent);
+}
+
+/* Interactive card lift — used only where a card is clickable. */
+.card-lift {
+  transition:
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px -26px color-mix(in srgb, var(--color-primary) 55%, transparent);
+}
+
+/* --------------------------------------------------------------------------
+   Fluid type scale — headings and body copy grow with the viewport instead of
+   snapping between fixed breakpoints. Clamped between 320px and ~1600px.
+   -------------------------------------------------------------------------- */
+@utility text-fluid-sm {
+  font-size: clamp(0.8125rem, 0.78rem + 0.14vw, 0.875rem);
+  line-height: 1.55;
+}
+
+@utility text-fluid-base {
+  font-size: clamp(0.9375rem, 0.9rem + 0.16vw, 1rem);
+  line-height: 1.65;
+}
+
+@utility text-fluid-lg {
+  font-size: clamp(1.0625rem, 0.98rem + 0.34vw, 1.25rem);
+  line-height: 1.45;
+}
+
+@utility text-fluid-xl {
+  font-size: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
+  line-height: 1.3;
+}
+
+@utility text-fluid-2xl {
+  font-size: clamp(1.5rem, 1.24rem + 1vw, 1.875rem);
+  line-height: 1.2;
+}
+
+@utility text-fluid-3xl {
+  font-size: clamp(1.75rem, 1.35rem + 1.6vw, 2.5rem);
+  line-height: 1.12;
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

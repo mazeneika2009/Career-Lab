@@ -1,0 +1,61 @@
+{
+  "name": "career-lab-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "generate-keys": "tsx scripts/generate-keys.ts",
+    "smtp:test": "tsx scripts/smtp-smoke.ts",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:supabase": "tsx scripts/migrate-to-supabase.ts",
+    "migrate:supabase:dry": "tsx scripts/migrate-to-supabase.ts --dry-run",
+    "migrate:supabase:list": "tsx scripts/migrate-to-supabase.ts --list",
+    "apply:learning-schema": "tsx scripts/apply-learning-schema.ts",
+    "apply:progress-schema": "tsx scripts/apply-progress-schema.ts",
+    "sync:progress": "tsx scripts/sync-progress.ts",
+    "db:push": "prisma db push",
+    "db:seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.5.0",
+    "@supabase/supabase-js": "^2.118.0",
+    "argon2": "^0.41.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.1.0",
+    "jose": "^5.9.6",
+    "mysql2": "^3.24.6",
+    "nodemailer": "^6.10.0",
+    "pg": "^8.23.1",
+    "pino": "^9.6.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.0",
+    "@types/nodemailer": "^6.4.17",
+    "@types/pg": "^8.23.1",
+    "@types/supertest": "^6.0.2",
+    "pino-pretty": "^13.0.0",
+    "prisma": "^6.5.0",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.7"
+  }
+}
