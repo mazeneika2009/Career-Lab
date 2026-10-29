@@ -143,6 +143,59 @@ policies: server-side access only.
 See [`backend/scripts/README.md`](backend/scripts/README.md) for schema setup, RLS, incremental
 runs, verification, and troubleshooting.
 
+## Deploy on Vercel
+
+The root [`vercel.json`](vercel.json) deploys the repository as one Vercel project with two
+services:
+
+| Service    | Root       | Public path | Purpose                          |
+| ---------- | ---------- | ----------- | -------------------------------- |
+| `backend`  | `backend/` | `/api/*`    | Express API (Vercel Function)    |
+| `frontend` | `frontend/`| `/*`        | Vite single-page application     |
+
+Both services are public because the browser calls `/api/v1` directly and the SPA is served from
+`/`. There are no server-to-server calls between the services, so no service bindings are declared.
+The frontend is static browser code, and service bindings resolve only inside functions at runtime.
+
+Import the repository root into Vercel and set these environment variables for the project:
+
+| Variable                  | Value                                                        |
+| ------------------------- | ------------------------------------------------------------ |
+| `NODE_ENV`                | `production`                                                 |
+| `APP_ENV`                 | `production`                                                 |
+| `COOKIE_SECURE`           | `true`                                                       |
+| `DATABASE_URL`            | Remote MySQL URL reachable from Vercel, with TLS if required |
+| `APP_WEB_URL`             | `https://<your-production-domain>`                           |
+| `CORS_ORIGINS`            | `https://<your-production-domain>`                           |
+| `JWT_PRIVATE_KEY_BASE64`  | Base64-encoded `keys/jwt-private.pem`                        |
+| `JWT_PUBLIC_KEYS_BASE64`  | Base64-encoded `keys/jwt-public.pem` (comma-separated if rotated) |
+| `SMTP_*`, `MAIL_FROM`     | Production mail credentials                                  |
+| `SUPABASE_*`              | Optional; same values used by the backend locally            |
+| `AI_GRADING_*`            | Optional; deterministic grading fallback works without them  |
+
+Generate the base64 key values after `npm run generate-keys`:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("keys/jwt-private.pem"))
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("keys/jwt-public.pem"))
+```
+
+`JWT_PRIVATE_KEY_BASE64` and `JWT_PUBLIC_KEYS_BASE64` take precedence over the local key paths. Do
+not set `VITE_API_URL` on Vercel: the SPA defaults to the same-origin `/api/v1` path, which the
+top-level rewrite sends to the backend. Apply the Supabase schemas separately with the
+`apply:progress-schema` / `apply:learning-schema` scripts; they are not part of the Vercel build.
+
+Run both services locally with the Vercel CLI:
+
+```bash
+npm i -g vercel
+vercel dev
+```
+
+The backend entrypoint is `backend/src/index.ts` (the Express app exported for Vercel). Local
+development keeps using `backend/src/server.ts` for the listener, SMTP warm-up and graceful
+shutdown.
+
 ## Tests
 
 Backend (`backend/`):

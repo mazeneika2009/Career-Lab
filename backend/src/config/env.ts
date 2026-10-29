@@ -27,8 +27,12 @@ const envSchema = z.object({
   ARGON2_TIME_COST: z.coerce.number().int().positive().default(2),
   ARGON2_PARALLELISM: z.coerce.number().int().positive().default(1),
 
-  JWT_PRIVATE_KEY_PATH: z.string().min(1),
-  JWT_PUBLIC_KEYS_DIR: z.string().min(1),
+  // Local development reads PEM files; serverless platforms such as Vercel
+  // cannot bundle gitignored key files, so they inject base64-encoded PEMs.
+  JWT_PRIVATE_KEY_PATH: z.string().min(1).optional(),
+  JWT_PUBLIC_KEYS_DIR: z.string().min(1).optional(),
+  JWT_PRIVATE_KEY_BASE64: z.string().min(1).optional(),
+  JWT_PUBLIC_KEYS_BASE64: z.string().min(1).optional(),
 
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(587),

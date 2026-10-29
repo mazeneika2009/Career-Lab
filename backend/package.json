@@ -12,6 +12,7 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "postinstall": "prisma generate",
     "generate-keys": "tsx scripts/generate-keys.ts",
     "smtp:test": "tsx scripts/smtp-smoke.ts",
     "migrate:dev": "prisma migrate dev",

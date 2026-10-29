@@ -2,7 +2,7 @@ import { getSessionAccessToken, useSessionStore } from '../store/sessionStore'
 import type { AuthResponse } from '../types/api'
 import { getCookieValue, randomRequestId } from '../utils/cookies'
 
-const BASE_URL: string = import.meta.env.VITE_API_URL ?? '/api/v1'
+const BASE_URL: string = import.meta.env.VITE_API_URL || '/api/v1'
 const CSRF_COOKIE = 'cl_csrf'
 
 export interface ApiErrorDetail {
