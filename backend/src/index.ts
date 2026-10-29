@@ -1,4 +1,8 @@
-import { createApp } from './app.js'
+// Vercel's Express builder detects entrypoints by looking for an `express`
+// import. Keep this type import so `src/index.ts` is preferred over the app
+// factory in `src/create-app.ts`.
+import type { Express } from 'express'
+import { createApp } from './create-app.js'
 
 /**
  * Vercel entrypoint.
@@ -7,4 +11,5 @@ import { createApp } from './app.js'
  * as a single Function. Local development still uses `src/server.ts`, which
  * owns the port listener, SMTP warm-up and graceful shutdown.
  */
-export default createApp()
+const app: Express = createApp()
+export default app

@@ -185,16 +185,17 @@ not set `VITE_API_URL` on Vercel: the SPA defaults to the same-origin `/api/v1` 
 top-level rewrite sends to the backend. Apply the Supabase schemas separately with the
 `apply:progress-schema` / `apply:learning-schema` scripts; they are not part of the Vercel build.
 
-Run both services locally with the Vercel CLI:
+Services mode requires a services-capable Vercel CLI (65.7.0 or newer). Run both services locally
+with:
 
 ```bash
-npm i -g vercel
-vercel dev
+npx -y vercel@latest dev
 ```
 
-The backend entrypoint is `backend/src/index.ts` (the Express app exported for Vercel). Local
-development keeps using `backend/src/server.ts` for the listener, SMTP warm-up and graceful
-shutdown.
+The backend entrypoint is `backend/src/index.ts` (the Express app exported for Vercel). The
+reusable app factory lives in `backend/src/create-app.ts`; Vercel's Express builder auto-detects
+entrypoints that import `express`, so `src/index.ts` is the file it selects. Local development
+keeps using `backend/src/server.ts` for the listener, SMTP warm-up and graceful shutdown.
 
 ## Tests
 

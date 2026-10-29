@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
 import type { Response } from 'supertest'
-import { createApp } from '../src/app.js'
+import { createApp } from '../src/create-app.js'
 import { createActiveUser, getCookie, resetDb } from './helpers/db.js'
 
 vi.mock('../src/services/email.service.js', () => ({
