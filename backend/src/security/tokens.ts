@@ -16,6 +16,17 @@ interface LoadedKeys {
 
 let loadedKeys: LoadedKeys | null = null
 
+/**
+ * Raised when the signing keys cannot be read, decoded or parsed. The error
+ * handler maps this to 503 (configuration problem) instead of 500 (bug).
+ */
+export class JwtKeyConfigurationError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options)
+    this.name = 'JwtKeyConfigurationError'
+  }
+}
+
 function fingerprint(pem: string): string {
   return createHash('sha256').update(pem).digest('hex').slice(0, 8)
 }
@@ -62,19 +73,32 @@ function loadPublicPems(): string[] {
 
 function loadKeys(): LoadedKeys {
   if (loadedKeys) return loadedKeys
-  const privatePem = loadPrivatePem()
-  const privateKey = createPrivateKey(privatePem)
-  const kid = fingerprint(createPublicKey(privateKey).export({ type: 'spki', format: 'pem' }).toString())
+  try {
+    const privatePem = loadPrivatePem()
+    const privateKey = createPrivateKey(privatePem)
+    const kid = fingerprint(createPublicKey(privateKey).export({ type: 'spki', format: 'pem' }).toString())
 
-  const publicByKeyId = new Map<string, KeyObject>()
-  for (const pem of loadPublicPems()) {
-    publicByKeyId.set(fingerprint(pem), createPublicKey(pem))
+    const publicByKeyId = new Map<string, KeyObject>()
+    for (const pem of loadPublicPems()) {
+      publicByKeyId.set(fingerprint(pem), createPublicKey(pem))
+    }
+    if (publicByKeyId.size === 0) {
+      throw new Error('No JWT public keys found. Run "npm run generate-keys" first.')
+    }
+    loadedKeys = { private: privateKey, kid, publicByKeyId }
+    return loadedKeys
+  } catch (error) {
+    // Preserve the actionable message but never include key material.
+    const detail = error instanceof Error ? error.message : 'unknown error'
+    throw new JwtKeyConfigurationError(`JWT signing keys could not be loaded: ${detail}`, {
+      cause: error
+    })
   }
-  if (publicByKeyId.size === 0) {
-    throw new Error('No JWT public keys found. Run "npm run generate-keys" first.')
-  }
-  loadedKeys = { private: privateKey, kid, publicByKeyId }
-  return loadedKeys
+}
+
+/** Fail early (readiness) when the JWT keys are missing or malformed. */
+export function assertJwtKeysLoaded(): void {
+  loadKeys()
 }
 
 export interface AccessTokenClaims extends JWTPayload {

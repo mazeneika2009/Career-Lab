@@ -13,3 +13,5 @@ keys-test/
 
 .vite/
 node_modules/.vite/
+
+.vercel

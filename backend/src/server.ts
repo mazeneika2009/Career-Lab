@@ -1,8 +1,13 @@
 import { createApp } from './create-app.js'
-import { env } from './config/env.js'
+import { env, envError } from './config/env.js'
 import { logger } from './utils/logger.js'
 import { prisma } from './utils/prisma.js'
 import { warmUpSmtp } from './services/email.service.js'
+
+if (envError) {
+  console.error('Invalid environment configuration:', envError)
+  process.exit(1)
+}
 
 const app = createApp()
 const server = app.listen(env.PORT, () => {

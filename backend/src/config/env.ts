@@ -62,13 +62,35 @@ const envSchema = z.object({
 
 const parsed = envSchema.safeParse(process.env)
 
-if (!parsed.success) {
-  const details = parsed.error.flatten().fieldErrors
-  console.error('Invalid environment configuration:', JSON.stringify(details, null, 2))
-  process.exit(1)
+function formatEnvError(error: z.ZodError): string {
+  const fieldErrors = error.flatten().fieldErrors
+  return Object.entries(fieldErrors)
+    .map(([field, messages]) => `${field}: ${(messages ?? []).join(', ')}`)
+    .join('; ')
 }
 
-export const env = parsed.data
+/**
+ * Non-null when the environment is invalid.
+ *
+ * Serverless platforms import the app before any request arrives, so a hard
+ * exit here would surface as an opaque FUNCTION_INVOCATION_FAILED. Instead the
+ * app boots with safe defaults and returns a structured 503 for API requests
+ * (see `create-app.ts`). Local development fails fast in `server.ts`.
+ */
+export const envError: string | null = parsed.success ? null : formatEnvError(parsed.error)
+
+const FALLBACK_DATABASE_URL = 'mysql://unavailable:unavailable@127.0.0.1:3306/unavailable'
+
+// Prisma reads DATABASE_URL from process.env directly. Give it a syntactically
+// valid placeholder so importing the client cannot crash before the 503 guard
+// is installed. API requests never reach the database while envError is set.
+if (!parsed.success && !/^mysql:\/\//i.test(process.env.DATABASE_URL ?? '')) {
+  process.env.DATABASE_URL = FALLBACK_DATABASE_URL
+}
+
+export const env: z.infer<typeof envSchema> = parsed.success
+  ? parsed.data
+  : envSchema.parse({ DATABASE_URL: FALLBACK_DATABASE_URL })
 
 export const corsOrigins = env.CORS_ORIGINS.split(',')
   .map((origin) => origin.trim())

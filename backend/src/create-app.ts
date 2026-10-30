@@ -2,13 +2,15 @@ import express, { type RequestHandler } from 'express'
 import cors from 'cors'
 import fs from 'node:fs'
 import path from 'node:path'
-import { env, corsOrigins } from './config/env.js'
-import { requestContext } from './middleware/request-context.js'
+import { env, corsOrigins, envError } from './config/env.js'
+import { requestContext, getRequestContext } from './middleware/request-context.js'
 import { securityHeaders, spaSecurityHeaders } from './security/headers.js'
 import { apiV1Router } from './routes/index.js'
 import { notFound, zodSafetyNet } from './middleware/validate.js'
 import { errorHandler } from './middleware/error-handler.js'
-import { jsonBigIntReplacer } from './utils/http.js'
+import { jsonBigIntReplacer, errorEnvelope } from './utils/http.js'
+import { ERROR_CODES } from './config/constants.js'
+import { logger } from './utils/logger.js'
 
 function resolveWebDist(): string | null {
   const candidates = [
@@ -26,7 +28,9 @@ export function createApp(): express.Express {
   const app = express()
 
   app.disable('x-powered-by')
-  app.set('trust proxy', env.APP_ENV === 'production')
+  // Trust exactly one proxy hop (the Vercel edge). `true` would let clients
+  // spoof X-Forwarded-For and bypass per-IP rate limiting.
+  app.set('trust proxy', env.APP_ENV === 'production' ? 1 : false)
   app.set('json replacer', jsonBigIntReplacer)
 
   app.use(requestContext)
@@ -44,6 +48,29 @@ export function createApp(): express.Express {
     })
   )
   app.use(express.json({ limit: '1mb' }))
+
+  if (envError) {
+    logger.error({ envError }, 'invalid environment configuration; API requests will return 503')
+    app.use('/api/v1', (req, res, next) => {
+      // Keep liveness reachable so platforms and uptime checks can distinguish
+      // a crashed function from a misconfigured but running one.
+      if (req.path === '/health/live') {
+        next()
+        return
+      }
+      const { requestId } = getRequestContext()
+      res
+        .status(503)
+        .json(
+          errorEnvelope(
+            ERROR_CODES.SERVICE_UNAVAILABLE,
+            'Service is temporarily unavailable due to a configuration error.',
+            undefined,
+            requestId
+          )
+        )
+    })
+  }
 
   app.use('/api/v1', apiV1Router)
 

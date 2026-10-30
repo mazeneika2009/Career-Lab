@@ -1,10 +1,11 @@
 {
   "name": "career-lab",
-  "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "backend"
+  ],
   "scripts": {
-    "build:web": "npm --prefix frontend run build",
-    "dev:single": "npm run build:web && npm --prefix backend run dev",
-    "dev": "npm --prefix backend run dev & npm --prefix frontend run dev"
+    "build": "npm --workspace career-lab-api run build",
+    "postinstall": "npm --workspace career-lab-api run postinstall"
   }
 }

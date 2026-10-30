@@ -11,6 +11,7 @@ import { toast } from '../../store/uiStore'
 import { Button } from '../../components/ui/button/Button'
 import { Callout } from '../../components/ui/callout/Callout'
 import { FormField, Input } from '../../components/ui/form-field/FormField'
+import { loginErrorMessage } from './loginErrorMessage'
 
 const loginSchema = z.object({
   email: z.string().trim().min(1, 'Email is required.').email('Enter a valid email address.'),
@@ -52,7 +53,7 @@ export function LoginPage(): React.JSX.Element {
           return
         }
       }
-      toast('danger', 'Invalid credentials.')
+      toast('danger', loginErrorMessage(error))
     }
   }
 

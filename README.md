@@ -157,8 +157,17 @@ services:
 
 | Service    | Root       | Public path | Purpose                          |
 | ---------- | ---------- | ----------- | -------------------------------- |
-| `backend`  | `backend/` | `/api/*`    | Express API (Vercel Function)    |
+| `backend`  | `.`        | `/api/*`    | Express API (entrypoint `backend/src/index.ts`) |
 | `frontend` | `frontend/`| `/*`        | Vite single-page application     |
+
+The backend service root is intentionally the repository root, not `backend/`. Vercel CLI 65.8
+mis-computes relative CommonJS `require` paths for a nested service root on Windows (it generated
+`..\backendpackage.json`, so the function crashed before Express started and returned
+`FUNCTION_INVOCATION_FAILED`). The repository root is also an npm workspace (`workspaces:
+["backend"]`), which installs backend dependencies at the function root where the generated shim can
+find them. Keep this layout unless you have verified a newer Vercel CLI fixes nested service roots;
+if you change it, redeploy and confirm `/api/v1/health/live` returns JSON rather than a Vercel error
+page.
 
 Both services are public because the browser calls `/api/v1` directly and the SPA is served from
 `/`. There are no server-to-server calls between the services, so no service bindings are declared.
@@ -205,6 +214,50 @@ The backend entrypoint is `backend/src/index.ts` (the Express app exported for V
 reusable app factory lives in `backend/src/create-app.ts`; Vercel's Express builder auto-detects
 entrypoints that import `express`, so `src/index.ts` is the file it selects. Local development
 keeps using `backend/src/server.ts` for the listener, SMTP warm-up and graceful shutdown.
+
+### Deployment checklist
+
+1. In **Project → Settings → General**, set **Root Directory** to the repository root (`./`). The
+   root `vercel.json` and the root npm workspace must be visible to the build; do not point the
+   project at `backend/`.
+2. Add the variables from the table above to the Production environment (and Preview if you use
+   preview deployments). Values are read at runtime; changing them requires a redeploy.
+3. Deploy through Vercel's Git integration when possible. If you deploy from Windows with
+   `vercel --prebuilt`, build from a clean copy without `node_modules` (Prisma cannot replace a
+   locked query engine in place) and make sure the Linux engine was generated:
+   `prisma generate` must report `libquery_engine-rhel-openssl-3.0.x.so.node` in
+   `node_modules/.prisma/client`.
+4. After deployment verify:
+   - `GET /api/v1/health/live` → `200 {"status":"ok"}`.
+   - `GET /api/v1/health/ready` → `200 {"status":"ok"}`; a structured `503` means the database or
+     JWT keys are not usable.
+   - `POST /api/v1/auth/login` with missing fields → `400 VALIDATION_ERROR`.
+   - `POST /api/v1/auth/login` with a wrong password → `401 INVALID_CREDENTIALS`.
+   - A valid account → `200` plus refresh/CSRF cookies.
+
+### Troubleshooting `FUNCTION_INVOCATION_FAILED`
+
+A `500` response with `X-Vercel-Error: FUNCTION_INVOCATION_FAILED` and a plain-text body is a
+function bootstrap failure, not an API error. The request never reached Express. Check the
+function build/runtime logs for `Cannot find module ...` or a missing Prisma engine. The known
+cause in this repository was the nested service root described above; the fix is the root service
+layout plus the root workspace lockfile. API responses produced by the app always have a JSON
+envelope (`{"success":false,"error":{...}}`).
+
+If the app returns `503 SERVICE_UNAVAILABLE`, it booted but is not ready:
+
+- `GET /api/v1/health/ready` distinguishes database and JWT failures in the function logs.
+- Invalid or missing env vars produce a `503` for `/api/v1/*` while `/health/live` stays `200`.
+  `server.ts` fails fast with the missing field names in local development.
+- Prisma connection, pool timeout, schema-missing (`P2021`/`P2022`) and query-engine load errors
+  are mapped to `503`, not `500`; a genuinely malformed request stays `400`.
+- The Vercel build runs `prisma generate` only. It never pushes or seeds the schema. Apply schema
+  changes from a trusted machine with `npm run db:push` (and `db:seed` for roles/permissions) and
+  confirm `DATABASE_URL` points at the same database the function uses. This repository has no
+  `prisma/migrations/` directory, so `prisma migrate deploy` is not the production path.
+- Do not set `VITE_API_URL`; the production bundle must call the same-origin `/api/v1` path so the
+  top-level rewrite and `connect-src 'self'` keep working.
+
 
 ## Tests
 
