@@ -117,8 +117,9 @@ npm run dev                 # http://localhost:5173
 `vite.config.ts` proxies `/api` to `http://localhost:4000` for both `vite dev` and
 `vite preview`, so browser requests stay same-origin and the CSP can remain
 `connect-src 'self'`. Override the target with `API_PROXY_TARGET` if the API runs
-elsewhere. Production builds reject a localhost `VITE_API_URL`; keep it unset (or
-relative) unless you intentionally use a separate API origin with matching CSP and CORS.
+elsewhere. Production builds ignore a localhost `VITE_API_URL` and fall back to the
+same-origin `/api/v1`; keep it unset (or relative) unless you intentionally use a
+separate API origin with matching CSP and CORS.
 
 ### 3. Supabase mirror (optional)
 
