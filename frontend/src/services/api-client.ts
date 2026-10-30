@@ -1,8 +1,8 @@
+import { apiUrl } from '../config/api'
 import { getSessionAccessToken, useSessionStore } from '../store/sessionStore'
 import type { AuthResponse } from '../types/api'
 import { getCookieValue, randomRequestId } from '../utils/cookies'
 
-const BASE_URL: string = import.meta.env.VITE_API_URL || '/api/v1'
 const CSRF_COOKIE = 'cl_csrf'
 
 export interface ApiErrorDetail {
@@ -93,7 +93,7 @@ async function execute<T>(path: string, options: RequestOptions): Promise<T> {
   for (let attempt = 1; ; attempt++) {
     let response: Response
     try {
-      response = await fetch(`${BASE_URL}${path}`, {
+      response = await fetch(apiUrl(path), {
         method,
         headers,
         credentials: 'include',

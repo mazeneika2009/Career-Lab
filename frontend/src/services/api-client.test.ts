@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { API_BASE_URL } from '../config/api'
 import { ApiError, apiRequest, refreshSession } from './api-client'
 import { useSessionStore } from '../store/sessionStore'
 
@@ -34,6 +35,19 @@ describe('api-client', () => {
     )
     const data = await apiRequest<{ hello: string }>('/anything')
     expect(data.hello).toBe('world')
+  })
+
+  it('uses the centralized API base for login and registration', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => okEnvelope({}))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await apiRequest('/auth/login', { method: 'POST', auth: false })
+    await apiRequest('/auth/register', { method: 'POST', auth: false })
+
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual([
+      `${API_BASE_URL}/auth/login`,
+      `${API_BASE_URL}/auth/register`
+    ])
   })
 
   it('throws ApiError with envelope details on failure', async () => {

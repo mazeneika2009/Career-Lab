@@ -1,9 +1,21 @@
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import request from 'supertest'
 import { createApp } from '../src/create-app.js'
-import { spaConnectSources } from '../src/security/headers.js'
 
 const app = createApp()
+
+interface VercelConfig {
+  services: {
+    frontend: {
+      headers: Array<{
+        headers: Array<{ key: string; value: string }>
+      }>
+    }
+  }
+}
 
 function parseCsp(header: string | undefined): Map<string, string[]> {
   const directives = new Map<string, string[]>()
@@ -13,6 +25,14 @@ function parseCsp(header: string | undefined): Map<string, string[]> {
     if (name) directives.set(name, sources)
   }
   return directives
+}
+
+function vercelFrontendCsp(): string | undefined {
+  const configPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../vercel.json')
+  const config = JSON.parse(readFileSync(configPath, 'utf8')) as VercelConfig
+  return config.services.frontend.headers[0]?.headers.find(
+    (header) => header.key === 'Content-Security-Policy'
+  )?.value
 }
 
 describe('content security policy', () => {
@@ -43,6 +63,9 @@ describe('content security policy', () => {
         'https://img.youtube.com'
       ])
     )
+    // API calls must stay on the frontend origin; Vite proxies them in
+    // development and Vercel rewrites them in production.
+    expect(spaCsp.get('connect-src')).toEqual(["'self'"])
     // Legacy child-src also governs workers; adding it here would break
     // Monaco's same-origin worker fallback.
     expect(spaCsp.has('child-src')).toBe(false)
@@ -54,16 +77,12 @@ describe('content security policy', () => {
     expect(apiCsp.has('frame-src')).toBe(false)
   })
 
-  it('allows the local API only outside production', () => {
-    expect(spaConnectSources('development', 4321)).toEqual([
-      "'self'",
-      'http://localhost:4321',
-      'ws://localhost:4321',
-      'http://127.0.0.1:4321',
-      'ws://127.0.0.1:4321'
-    ])
-    expect(spaConnectSources('test', 4321)).toContain('http://localhost:4321')
-    expect(spaConnectSources('staging', 4321)).toEqual(["'self'"])
-    expect(spaConnectSources('production', 4321)).toEqual(["'self'"])
+  it('matches the CSP declared for the Vercel frontend', async () => {
+    const spa = await request(app).get('/learn')
+    const expressCsp = parseCsp(
+      spa.headers['content-security-policy'] as string | undefined
+    )
+
+    expect(expressCsp).toEqual(parseCsp(vercelFrontendCsp()))
   })
 })
