@@ -6,10 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("SUPABASE_URL")
 }
-
 enum UserStatus {
   pending_verification
   active
@@ -86,7 +85,7 @@ model UserProfile {
   userId                BigInt    @unique @map("user_id")
   displayName           String    @db.VarChar(120) @map("display_name")
   timezone              String    @db.VarChar(64)
-  weeklyHours           Int?      @db.TinyInt @map("weekly_hours")
+  weeklyHours           Int?      @db.SmallInt @map("weekly_hours")
   bio                   String?   @db.VarChar(1000)
   onboardingState       Json?     @map("onboarding_state")
   onboardingCompletedAt DateTime? @map("onboarding_completed_at")
@@ -200,7 +199,7 @@ model SecurityEvent {
   kind      SecurityEventKind
   subject   String?           @db.VarChar(320)
   meta      Json?
-  severity  Int               @default(1) @db.TinyInt
+  severity  Int               @default(1) @db.SmallInt
   createdAt DateTime          @default(now()) @map("created_at")
 
   @@index([kind, createdAt])
