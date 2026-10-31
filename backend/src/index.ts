@@ -1,7 +1,7 @@
 // Vercel's Express builder detects entrypoints by looking for an `express`
 // import. Keep this type import so `src/index.ts` is preferred over the app
 // factory in `src/create-app.ts`.
-import type { Express } from 'express'
+import express, { type Express } from 'express'
 import { createApp } from './create-app.js'
 
 /**

@@ -472,7 +472,7 @@ export async function seedContentLibrary(prisma: PrismaClient): Promise<{ career
           roleTitle: def.roleTitle
         }
       })
-    })
+    }, { timeout: 30000, maxWait: 10000 })
     authored += 1
     process.stdout.write(`Seeded career content: ${def.name}\n`)
   }

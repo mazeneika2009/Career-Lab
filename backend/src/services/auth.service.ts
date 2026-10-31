@@ -113,23 +113,44 @@ async function createSessionWithTokens(
   userId: bigint,
   meta: RequestMeta
 ): Promise<AuthTokensPayload> {
-  const snapshot = await loadSnapshot(userId)
+  let snapshot: SnapshotData
+  try {
+    snapshot = await loadSnapshot(userId)
+  } catch (err) {
+    logger.error({ stage: 'load_snapshot', err }, 'failed to load user snapshot')
+    throw err
+  }
+
   const refreshToken = mintOpaqueToken()
-  const session = await sessionRepo.createSession(prisma, {
-    publicId: ulid(),
-    userId,
-    familyId: ulid(),
-    refreshHash: sha256Hex(refreshToken),
-    userAgent: meta.userAgent ? meta.userAgent.slice(0, 512) : null,
-    ip: meta.ip,
-    expiresAt: new Date(Date.now() + env.SESSION_TTL_DAYS * 24 * 60 * 60 * 1000)
-  })
-  const accessToken = await issueAccessToken({
-    subjectPublicId: snapshot.user.publicId,
-    sessionPublicId: session.publicId,
-    roles: snapshot.roles,
-    permissions: snapshot.permissions
-  })
+  let session
+  try {
+    session = await sessionRepo.createSession(prisma, {
+      publicId: ulid(),
+      userId,
+      familyId: ulid(),
+      refreshHash: sha256Hex(refreshToken),
+      userAgent: meta.userAgent ? meta.userAgent.slice(0, 512) : null,
+      ip: meta.ip,
+      expiresAt: new Date(Date.now() + env.SESSION_TTL_DAYS * 24 * 60 * 60 * 1000)
+    })
+  } catch (err) {
+    logger.error({ stage: 'create_session', userId: snapshot.user.publicId, err }, 'failed to create session record')
+    throw err
+  }
+
+  let accessToken: string
+  try {
+    accessToken = await issueAccessToken({
+      subjectPublicId: snapshot.user.publicId,
+      sessionPublicId: session.publicId,
+      roles: snapshot.roles,
+      permissions: snapshot.permissions
+    })
+  } catch (err) {
+    logger.error({ stage: 'sign_jwt', userId: snapshot.user.publicId, err }, 'failed to sign access token')
+    throw err
+  }
+
   return {
     accessToken,
     expiresIn: env.ACCESS_TOKEN_TTL_MINUTES * 60,
@@ -303,7 +324,13 @@ function lockUntilForFailure(count: number): Date | null {
 }
 
 export async function login(dto: LoginDto, meta: RequestMeta): Promise<AuthTokensPayload> {
-  const user = await findByEmail(prisma, dto.email)
+  let user: User | null
+  try {
+    user = await findByEmail(prisma, dto.email)
+  } catch (err) {
+    logger.error({ stage: 'user_lookup', err }, 'login stage failed: user_lookup')
+    throw err
+  }
 
   if (!user) {
     await dummyVerify(dto.password)
@@ -326,7 +353,13 @@ export async function login(dto: LoginDto, meta: RequestMeta): Promise<AuthToken
     )
   }
 
-  const passwordValid = await verifyPassword(user.passwordHash, dto.password)
+  let passwordValid = false
+  try {
+    passwordValid = await verifyPassword(user.passwordHash, dto.password)
+  } catch (err) {
+    logger.error({ stage: 'password_verification', userId: user.publicId, err }, 'login stage failed: password_verification')
+    throw err
+  }
 
   if (!passwordValid) {
     const nextCount = user.failedLoginCount + 1
@@ -346,14 +379,25 @@ export async function login(dto: LoginDto, meta: RequestMeta): Promise<AuthToken
     throw AppError.invalidCredentials()
   }
 
-  if (paramsDrift(user.argonParams)) {
-    const { hash, params } = await hashPassword(dto.password)
-    await updatePasswordHash(prisma, user.id, hash, params)
+  try {
+    if (paramsDrift(user.argonParams)) {
+      const { hash, params } = await hashPassword(dto.password)
+      await updatePasswordHash(prisma, user.id, hash, params)
+    }
+
+    await recordLoginSuccess(prisma, user)
+  } catch (err) {
+    logger.error({ stage: 'record_login_success', userId: user.publicId, err }, 'login stage failed: record_login_success')
+    throw err
   }
 
-  await recordLoginSuccess(prisma, user)
-
-  const payload = await createSessionWithTokens(user.id, meta)
+  let payload: AuthTokensPayload
+  try {
+    payload = await createSessionWithTokens(user.id, meta)
+  } catch (err) {
+    logger.error({ stage: 'create_session_tokens', userId: user.publicId, err }, 'login stage failed: create_session_tokens')
+    throw err
+  }
 
   writeAudit(
     {
