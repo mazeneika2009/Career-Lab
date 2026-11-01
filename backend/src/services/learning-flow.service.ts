@@ -3,7 +3,12 @@ import { AppError } from '../utils/http.js'
 import { ulid } from '../utils/ids.js'
 import { logger } from '../utils/logger.js'
 import { requireActiveCareer } from './domain.helpers.js'
-import { supabaseAdmin, supabaseConfigured, supabaseSchema } from '../utils/supabase.js'
+import {
+  runSupabase,
+  supabaseAdmin,
+  supabaseConfigured,
+  supabaseSchema
+} from '../utils/supabase.js'
 import type { Assignment, Chapter, Exam, Prisma } from '@prisma/client'
 import { pickChapterForAssignment } from '../content/assignment-routing.js'
 
@@ -507,19 +512,22 @@ async function loadPersistedSteps(
   careerSlug: string
 ): Promise<Map<string, PersistedStep>> {
   if (!supabaseConfigured()) return new Map()
-  const { data, error } = await supabaseAdmin()
-    .schema(supabaseSchema())
-    .from('learning_step_progress')
-    .select('chapter_public_id,step,status,score,completed_at')
-    .eq('user_public_id', userPublicId)
-    .eq('career_slug', careerSlug)
+  const { data, error } = await runSupabase(
+    () =>
+      supabaseAdmin()
+        .schema(supabaseSchema())
+        .from('learning_step_progress')
+        .select('chapter_public_id,step,status,score,completed_at')
+        .eq('user_public_id', userPublicId)
+        .eq('career_slug', careerSlug),
+    { label: 'learning_step_progress.read' }
+  )
   if (error) {
-    logger.error({ error: error.message }, 'Unable to read learning step progress')
-    throw new AppError(
-      503,
-      'PROGRESS_UNAVAILABLE',
-      'Learning progress is temporarily unavailable. Please try again.'
+    logger.warn(
+      { error: error.message, code: error.code },
+      'Unable to read learning step progress; using MySQL-derived state'
     )
+    return new Map()
   }
   const rows = (data ?? []) as Array<{
     chapter_public_id: string
@@ -561,19 +569,22 @@ async function persistStepRows(
       completed_at: row.completedAt,
       updated_at: new Date().toISOString()
     }))
-    const { error } = await supabaseAdmin()
-      .schema(supabaseSchema())
-      .from('learning_step_progress')
-      .upsert(payload, {
-        onConflict: 'user_public_id,career_slug,chapter_public_id,step'
-      })
+    const { error } = await runSupabase(
+      () =>
+        supabaseAdmin()
+          .schema(supabaseSchema())
+          .from('learning_step_progress')
+          .upsert(payload, {
+            onConflict: 'user_public_id,career_slug,chapter_public_id,step'
+          }),
+      { label: 'learning_step_progress.upsert' }
+    )
     if (error) {
-      logger.error({ error: error.message }, 'Unable to persist learning step progress')
-      throw new AppError(
-        503,
-        'PROGRESS_UNAVAILABLE',
-        'Your progress could not be saved. Please try again.'
+      logger.warn(
+        { error: error.message, code: error.code },
+        'Unable to persist learning step progress; MySQL remains authoritative'
       )
+      return new Map(rows.map((row) => [stepKey(row.chapterPublicId, row.step), row]))
     }
   }
   return loadPersistedSteps(userPublicId, careerSlug)
@@ -1037,16 +1048,20 @@ export async function completeStep(input: {
     completed_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   }
-  const { error } = await supabaseAdmin()
-    .schema(supabaseSchema())
-    .from('learning_step_progress')
-    .upsert(row, { onConflict: 'user_public_id,career_slug,chapter_public_id,step' })
+  const { error } = await runSupabase(
+    () =>
+      supabaseAdmin()
+        .schema(supabaseSchema())
+        .from('learning_step_progress')
+        .upsert(row, {
+          onConflict: 'user_public_id,career_slug,chapter_public_id,step'
+        }),
+    { label: 'learning_step_progress.complete' }
+  )
   if (error) {
-    logger.error({ error: error.message }, 'Unable to complete learning step')
-    throw new AppError(
-      503,
-      'PROGRESS_UNAVAILABLE',
-      'Your progress could not be saved. Please try again.'
+    logger.warn(
+      { error: error.message, code: error.code },
+      'Unable to mirror completed learning step; MySQL remains authoritative'
     )
   }
 }
@@ -1078,30 +1093,32 @@ export async function savePracticalSubmission(input: {
   const publicId = ulid()
   const createdAt = new Date().toISOString()
   if (supabaseConfigured()) {
-    const { error } = await supabaseAdmin()
-      .schema(supabaseSchema())
-      .from('practical_submissions')
-      .insert({
-        public_id: publicId,
-        user_public_id: input.userPublicId,
-        career_slug: input.careerSlug,
-        chapter_public_id: input.chapterPublicId,
-        exam_public_id: input.examPublicId,
-        language: input.language,
-        code: input.code,
-        score: input.score,
-        passed: input.passed,
-        feedback: input.feedback as object,
-        graded_by: input.gradedBy,
-        model: input.model,
-        created_at: createdAt
-      })
+    const { error } = await runSupabase(
+      () =>
+        supabaseAdmin()
+          .schema(supabaseSchema())
+          .from('practical_submissions')
+          .insert({
+            public_id: publicId,
+            user_public_id: input.userPublicId,
+            career_slug: input.careerSlug,
+            chapter_public_id: input.chapterPublicId,
+            exam_public_id: input.examPublicId,
+            language: input.language,
+            code: input.code,
+            score: input.score,
+            passed: input.passed,
+            feedback: input.feedback as object,
+            graded_by: input.gradedBy,
+            model: input.model,
+            created_at: createdAt
+          }),
+      { label: 'practical_submissions.insert' }
+    )
     if (error) {
-      logger.error({ error: error.message }, 'Unable to save practical submission')
-      throw new AppError(
-        503,
-        'SUBMISSION_UNAVAILABLE',
-        'Your submission could not be saved. Please try again.'
+      logger.warn(
+        { error: error.message, code: error.code },
+        'Unable to mirror practical submission; MySQL retains the attempt'
       )
     }
   }

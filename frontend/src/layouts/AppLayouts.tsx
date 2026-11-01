@@ -6,6 +6,7 @@ import { useSessionStore } from '../store/sessionStore'
 import { Button } from '../components/ui/button/Button'
 import { Icon } from '../components/ui/icon/Icon'
 import { useSimulationGate } from '../hooks/useSimulationGate'
+import { cn } from '../utils/cn'
 import { isNavItemLocked, navLockHint, type WorkAccess } from './workplaceAccess'
 
 const NAV_GROUPS: Array<{
@@ -209,6 +210,7 @@ export function AppShellLayout(): React.JSX.Element {
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const isCoursePlayer = location.pathname === ROUTES.learn
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
@@ -412,7 +414,12 @@ export function AppShellLayout(): React.JSX.Element {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        <main
+          className={cn(
+            'mx-auto w-full flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8',
+            isCoursePlayer ? 'max-w-[1440px]' : 'max-w-5xl'
+          )}
+        >
           <div key={location.pathname} className="page-enter">
             <Outlet />
           </div>

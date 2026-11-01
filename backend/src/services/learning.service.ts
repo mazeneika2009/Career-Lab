@@ -141,12 +141,11 @@ export async function getLearningPath(userId: bigint) {
   return {
     career: { name: active.career.name, slug: active.career.slug, pathSummary: active.career.pathSummary },
     stages: chapters.map((ch) => {
-      const topics = ch.topics.map((t, idx) => {
+      let priorIncomplete = false
+      const topics = ch.topics.map((t) => {
         const status = t.progress[0]?.status ?? 'not_started'
-        // Sequential unlocking: a topic is locked until every prior topic is complete.
-        const priorIncomplete =
-          ch.topics.slice(0, idx).some((p) => (p.progress[0]?.status ?? 'not_started') !== 'completed')
-        const unlocked = idx === 0 ? previousComplete || idx === 0 && ch.order === 1 : !priorIncomplete
+        const unlocked = previousComplete && !priorIncomplete
+        if (status !== 'completed') priorIncomplete = true
         return {
           publicId: t.publicId,
           title: t.title,
@@ -270,12 +269,19 @@ export async function getTopicContent(
   // Strict sequential access: a locked lesson cannot be opened by URL.
   await assertLessonContentAccess(userId, userPublicId, topic.chapter.publicId)
 
-  // Reading progress tracking.
-  await prisma.topicProgress.upsert({
+  const viewedAt = new Date()
+  const progress = await prisma.topicProgress.upsert({
     where: { userId_topicId: { userId, topicId: topic.id } },
-    update: { lastViewedAt: new Date(), status: 'in_progress' },
-    create: { userId, topicId: topic.id, status: 'in_progress' }
+    update: { lastViewedAt: viewedAt },
+    create: { userId, topicId: topic.id, status: 'in_progress', lastViewedAt: viewedAt }
   })
+  if (progress.status !== 'completed') {
+    await prisma.topicProgress.updateMany({
+      where: { userId, topicId: topic.id, status: { not: 'completed' } },
+      data: { status: 'in_progress' }
+    })
+  }
+  const status = progress.status === 'completed' ? 'completed' : 'in_progress'
 
   const siblings = topic.chapter.topics
   const idx = siblings.findIndex((s) => s.id === topic.id)
@@ -302,7 +308,7 @@ export async function getTopicContent(
       minutes: topic.minutes,
       objectives: asStringArray(topic.objectives),
       sections: topic.sections,
-      status: 'in_progress' as const
+      status
     },
     chapter: { publicId: topic.chapter.publicId, title: topic.chapter.title, stage: topic.chapter.stage },
     navigation: {

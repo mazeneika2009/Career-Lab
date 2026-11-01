@@ -9,6 +9,7 @@ import type {
   TheoryLessonReference
 } from '../../types/domain'
 import { ROUTES } from '../../constants/routes'
+import { cn } from '../../utils/cn'
 import { careerGateOrError } from './LearningPathPage'
 import {
   EmptyState,
@@ -277,13 +278,13 @@ export default function UnifiedLearningPage(): React.JSX.Element {
         </div>
       ) : null}
 
-      <div className="flex items-start gap-4">
-        <div className="min-w-0 flex-1 space-y-4">
-          <section className="rounded-lg border border-border bg-surface">
-            <div className="flex flex-wrap items-end justify-between gap-3 px-5 py-4">
+      <div className="flex items-start gap-5">
+        <div className="min-w-0 flex-1 space-y-5">
+          <section className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-primary/[0.02] px-5 py-4">
               <div className="min-w-0">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/45">
-                  Lesson {String(lesson.number).padStart(2, '0')} of {flow.lessons.length} ·{' '}
+                  Lesson {String(lesson.number).padStart(2, '0')} of {flow.lessons.length} /{' '}
                   {lesson.stage}
                 </p>
                 <h1 className="mt-1 text-balance font-display text-xl font-bold tracking-tight text-primary">
@@ -291,13 +292,17 @@ export default function UnifiedLearningPage(): React.JSX.Element {
                 </h1>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2">
-                <p className="text-xs text-primary/50">
-                  {lesson.completed
-                    ? 'Lesson complete'
-                    : step.completed
-                      ? `${step.label} complete`
-                      : `Current stage: ${step.label}`}
-                </p>
+                {lesson.completed ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-info/25 bg-info/[0.05] px-2.5 py-1 text-[10px] font-semibold text-info">
+                    <Icon name="check-circle" className="h-3 w-3" />
+                    Lesson complete
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/25 bg-accent/[0.05] px-2.5 py-1 text-[10px] font-semibold text-accent">
+                    <Icon name="clock" className="h-3 w-3" />
+                    {step.label}
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={() => setOutlineOpen((open) => !open)}
@@ -324,40 +329,97 @@ export default function UnifiedLearningPage(): React.JSX.Element {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-4">
-              {STEP_ORDER.map((stepDef, index) => {
-                const info = stepFor(lesson, stepDef.key)
-                const active = activeTarget.step === stepDef.key
-                return (
-                  <button
-                    key={stepDef.key}
-                    type="button"
-                    disabled={!info.unlocked}
-                    title={info.lockReason ?? undefined}
-                    onClick={() => moveTo(lesson.chapterPublicId, stepDef.key)}
-                    aria-current={active ? 'step' : undefined}
-                    className={`px-4 py-3 text-left transition-colors ${
-                      active
-                        ? 'bg-primary text-surface'
-                        : info.unlocked
-                          ? 'bg-surface text-primary hover:bg-primary/[0.035]'
-                          : 'cursor-not-allowed bg-surface text-primary/35'
-                    }`}
-                  >
-                    <span className={`font-mono text-[10px] font-semibold uppercase tracking-[0.14em] ${active ? 'text-surface/60' : 'text-primary/40'}`}>
-                      Step {String(index + 1).padStart(2, '0')}
-                    </span>
-                    <span className="mt-1 flex items-baseline justify-between gap-2">
-                      <span className={`text-sm ${active ? 'font-semibold' : 'font-medium'}`}>
-                        {stepDef.short}
-                      </span>
-                      <span className={`text-[10px] font-medium ${active ? 'text-surface/65' : info.completed ? 'text-info' : info.unlocked ? 'text-primary/55' : 'text-primary/35'}`}>
-                        {info.completed ? 'Completed' : info.unlocked ? 'Available' : 'Locked'}
-                      </span>
-                    </span>
-                  </button>
-                )
-              })}
+            <div className="px-3 py-3 sm:px-4">
+              <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {STEP_ORDER.map((stepDef, index) => {
+                  const info = stepFor(lesson, stepDef.key)
+                  const active = activeTarget.step === stepDef.key
+                  const status = active
+                    ? 'Current'
+                    : info.completed
+                      ? 'Complete'
+                      : info.unlocked
+                        ? 'Open'
+                        : 'Locked'
+                  return (
+                    <li key={stepDef.key}>
+                      <button
+                        type="button"
+                        disabled={!info.unlocked}
+                        title={info.lockReason ?? undefined}
+                        onClick={() => moveTo(lesson.chapterPublicId, stepDef.key)}
+                        aria-current={active ? 'step' : undefined}
+                        className={cn(
+                          'group flex h-full w-full flex-col justify-between gap-3 rounded-lg border px-3 py-3 text-left transition-all duration-150',
+                          active
+                            ? 'border-accent/45 bg-accent/[0.055] shadow-sm'
+                            : info.completed
+                              ? 'border-info/25 bg-info/[0.03] hover:border-info/40'
+                              : info.unlocked
+                                ? 'border-border bg-bg/20 hover:border-accent/30 hover:bg-surface'
+                                : 'cursor-not-allowed border-border/60 bg-bg/10 opacity-55'
+                        )}
+                      >
+                        <span className="flex items-center justify-between gap-2">
+                          <span
+                            className={cn(
+                              'flex h-7 w-7 items-center justify-center rounded-full border',
+                              active
+                                ? 'border-accent bg-accent text-surface shadow-sm'
+                                : info.completed
+                                  ? 'border-info/30 bg-info/10 text-info'
+                                  : info.unlocked
+                                    ? 'border-border bg-surface text-primary/50 group-hover:border-accent/35'
+                                    : 'border-border/60 bg-surface/60 text-primary/30'
+                            )}
+                          >
+                            {info.completed ? (
+                              <Icon name="check" className="h-3.5 w-3.5" />
+                            ) : !info.unlocked ? (
+                              <Icon name="lock" className="h-3.5 w-3.5" />
+                            ) : (
+                              <span className="font-mono text-[10px] font-bold">
+                                {String(index + 1).padStart(2, '0')}
+                              </span>
+                            )}
+                          </span>
+                          <span
+                            className={cn(
+                              'text-[9px] font-semibold uppercase tracking-[0.08em]',
+                              active
+                                ? 'text-accent'
+                                : info.completed
+                                  ? 'text-info'
+                                  : info.unlocked
+                                    ? 'text-primary/35'
+                                    : 'text-primary/30'
+                            )}
+                          >
+                            {status}
+                          </span>
+                        </span>
+                        <span className="min-w-0">
+                          <span
+                            className={cn(
+                              'block text-sm leading-tight',
+                              active
+                                ? 'font-semibold text-primary'
+                                : info.unlocked
+                                  ? 'font-medium text-primary/75 group-hover:text-primary'
+                                  : 'font-medium text-primary/40'
+                            )}
+                          >
+                            {stepDef.short}
+                          </span>
+                          <span className="mt-0.5 block font-mono text-[9px] uppercase tracking-[0.12em] text-primary/35">
+                            Step {String(index + 1).padStart(2, '0')}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ol>
             </div>
           </section>
 
