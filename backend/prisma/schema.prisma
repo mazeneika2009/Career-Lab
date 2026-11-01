@@ -1,0 +1,823 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  pending_verification
+  active
+  suspended
+  deleted
+}
+
+enum SessionStatus {
+  active
+  rotated
+  revoked
+}
+
+enum EmailTokenPurpose {
+  email_verify
+  password_reset
+}
+
+enum ActorType {
+  user
+  system
+  anonymous
+}
+
+enum SecurityEventKind {
+  login_fail
+  refresh_reuse
+  rate_limit_hit
+  perm_denied
+}
+
+model User {
+  id               BigInt     @id @default(autoincrement())
+  publicId         String     @unique @db.Char(26) @map("public_id")
+  email            String     @unique @db.VarChar(320)
+  passwordHash     String     @db.VarChar(255) @map("password_hash")
+  status           UserStatus @default(pending_verification)
+  mfaEnabled       Boolean    @default(false) @map("mfa_enabled")
+  argonParams      Json       @map("argon_params")
+  failedLoginCount Int        @default(0) @map("failed_login_count")
+  lockedUntil      DateTime?  @map("locked_until")
+  lastLoginAt      DateTime?  @map("last_login_at")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  profile     UserProfile?
+  sessions    Session[]
+  emailTokens EmailToken[]
+  userRoles   UserRole[]
+
+  studentCareers    StudentCareer[]
+  topicProgress     TopicProgress[]
+  practiceAttempts  PracticeAttempt[]
+  examAttempts      ExamAttempt[]
+  submissions       AssignmentSubmission[]
+  evaluations       Evaluation[]
+  skillProgress     SkillProgress[]
+  simulations       SimulationState[]
+  userSimTasks      UserSimTask[]
+  commThreads       CommThread[]
+  scenarioResponses ScenarioResponse[]
+  interviewSessions InterviewSession[]
+  portfolioItems    PortfolioItem[]
+  certificates      Certificate[]
+  readinessRecords  ReadinessRecord[]
+  notifications     Notification[]
+
+  @@index([status])
+  @@map("users")
+}
+
+model UserProfile {
+  id                    BigInt    @id @default(autoincrement())
+  userId                BigInt    @unique @map("user_id")
+  displayName           String    @db.VarChar(120) @map("display_name")
+  timezone              String    @db.VarChar(64)
+  weeklyHours           Int?      @db.TinyInt @map("weekly_hours")
+  bio                   String?   @db.VarChar(1000)
+  onboardingState       Json?     @map("onboarding_state")
+  onboardingCompletedAt DateTime? @map("onboarding_completed_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model Session {
+  id          BigInt        @id @default(autoincrement())
+  publicId    String        @unique @db.Char(26) @map("public_id")
+  userId      BigInt        @map("user_id")
+  familyId    String        @db.Char(26) @map("family_id")
+  refreshHash String        @unique @db.Char(64) @map("refresh_hash")
+  status      SessionStatus @default(active)
+  userAgent   String?       @db.VarChar(512) @map("user_agent")
+  ip          String?       @db.VarChar(45)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  lastUsedAt  DateTime      @default(now()) @map("last_used_at")
+  expiresAt   DateTime      @map("expires_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([expiresAt])
+  @@index([familyId])
+  @@map("sessions")
+}
+
+model EmailToken {
+  id         BigInt            @id @default(autoincrement())
+  userId     BigInt            @map("user_id")
+  purpose    EmailTokenPurpose
+  tokenHash  String            @unique @db.Char(64) @map("token_hash")
+  expiresAt  DateTime          @map("expires_at")
+  consumedAt DateTime?         @map("consumed_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_tokens")
+}
+
+model Role {
+  id          BigInt  @id @default(autoincrement())
+  name        String  @unique @db.VarChar(50)
+  description String  @db.VarChar(255)
+
+  users            UserRole[]
+  rolePermissions  RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id       BigInt @id @default(autoincrement())
+  codename String @unique @db.VarChar(100)
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  id         BigInt  @id @default(autoincrement())
+  userId     BigInt  @map("user_id")
+  roleId     BigInt  @map("role_id")
+  assignedBy String? @db.Char(26) @map("assigned_by")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  id           BigInt @id @default(autoincrement())
+  roleId       BigInt @map("role_id")
+  permissionId BigInt @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model AuditLog {
+  id         BigInt    @id @default(autoincrement())
+  actorType  ActorType @map("actor_type")
+  actorId    String?   @db.VarChar(64) @map("actor_id")
+  action     String    @db.VarChar(100)
+  entityType String    @db.VarChar(60) @map("entity_type")
+  entityId   String    @db.VarChar(64) @map("entity_id")
+  before     Json?
+  after      Json?
+  ip         String?   @db.VarChar(45)
+  ua         String?   @db.VarChar(512)
+  requestId  String    @db.VarChar(64) @map("request_id")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
+}
+
+model SecurityEvent {
+  id        BigInt            @id @default(autoincrement())
+  kind      SecurityEventKind
+  subject   String?           @db.VarChar(320)
+  meta      Json?
+  severity  Int               @default(1) @db.TinyInt
+  createdAt DateTime          @default(now()) @map("created_at")
+
+  @@index([kind, createdAt])
+  @@map("security_events")
+}
+
+// ---------------------------------------------------------------------------
+// Career content library (authored, seeded data — read-only for students)
+// ---------------------------------------------------------------------------
+
+enum ResourceKind {
+  link
+  video
+  tool
+  source
+}
+
+model Career {
+  id              BigInt     @id @default(autoincrement())
+  publicId        String     @unique @db.Char(26) @map("public_id")
+  slug            String     @unique @db.VarChar(80)
+  name            String     @db.VarChar(120)
+  category        String     @db.VarChar(60)
+  description     String     @db.VarChar(600)
+  difficulty      String     @db.VarChar(40)
+  pathSummary     String     @db.VarChar(400) @map("path_summary")
+  mainSkills      Json       @map("main_skills")
+  sourcePlatforms Json       @map("source_platforms")
+  order           Int        @default(0)
+  companyName     String     @default("") @map("company_name") @db.VarChar(120)
+  roleTitle       String     @default("") @map("role_title") @db.VarChar(120)
+
+  book               Book?
+  exams              Exam[]
+  assignments        Assignment[]
+  practiceExercises  PracticeExercise[]
+  simTasks           SimTask[]
+  commScenarios      CommScenario[]
+  workplaceScenarios WorkplaceScenario[]
+  interviewQuestions InterviewQuestion[]
+  studentCareers     StudentCareer[]
+  simulations        SimulationState[]
+
+  @@index([category])
+  @@index([order])
+  @@map("careers")
+}
+
+model Book {
+  id          BigInt @id @default(autoincrement())
+  careerId    BigInt @unique @map("career_id")
+  title       String @db.VarChar(160)
+  description String @db.VarChar(600)
+
+  career   Career    @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  chapters Chapter[]
+
+  @@map("books")
+}
+
+model Chapter {
+  id          BigInt @id @default(autoincrement())
+  publicId    String @unique @db.Char(26) @map("public_id")
+  bookId      BigInt @map("book_id")
+  stage       String @db.VarChar(30)
+  order       Int
+  slug        String @db.VarChar(80)
+  title       String @db.VarChar(160)
+  description String @db.VarChar(500)
+
+  book         Book         @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  topics       Topic[]
+  chapterExams Exam[]
+  assignments  Assignment[]
+
+  @@unique([bookId, slug])
+  @@index([bookId, order])
+  @@map("chapters")
+}
+
+model Topic {
+  id         BigInt @id @default(autoincrement())
+  publicId   String @unique @db.Char(26) @map("public_id")
+  chapterId  BigInt @map("chapter_id")
+  order      Int
+  slug       String @db.VarChar(80)
+  title      String @db.VarChar(160)
+  minutes    Int    @default(20)
+  objectives Json
+  sections   Json
+  quiz       Json
+
+  chapter   Chapter          @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  resources TopicResource[]
+  progress  TopicProgress[]
+  practice  PracticeExercise[]
+
+  @@unique([chapterId, slug])
+  @@index([chapterId, order])
+  @@map("topics")
+}
+
+model TopicResource {
+  id           BigInt       @id @default(autoincrement())
+  topicId      BigInt       @map("topic_id")
+  kind         ResourceKind
+  title        String       @db.VarChar(200)
+  url          String       @db.VarChar(500)
+  platform     String?      @db.VarChar(60)
+  creator      String?      @db.VarChar(120)
+  durationSec  Int?         @map("duration_sec")
+  relationship String       @db.VarChar(300)
+
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@index([topicId, kind])
+  @@map("topic_resources")
+}
+
+// ---------------------------------------------------------------------------
+// Student learning state
+// ---------------------------------------------------------------------------
+
+enum ProgressStatus {
+  not_started
+  in_progress
+  completed
+}
+
+model StudentCareer {
+  id         BigInt   @id @default(autoincrement())
+  userId     BigInt   @map("user_id")
+  careerId   BigInt   @map("career_id")
+  active     Boolean  @default(true)
+  selectedAt DateTime @default(now()) @map("selected_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  career Career @relation(fields: [careerId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, careerId])
+  @@index([userId, active])
+  @@map("student_careers")
+}
+
+model TopicProgress {
+  id           BigInt         @id @default(autoincrement())
+  userId       BigInt         @map("user_id")
+  topicId      BigInt         @map("topic_id")
+  status       ProgressStatus @default(not_started)
+  lastViewedAt DateTime       @default(now()) @map("last_viewed_at")
+  completedAt  DateTime?      @map("completed_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, topicId])
+  @@index([userId, status])
+  @@map("topic_progress")
+}
+
+// ---------------------------------------------------------------------------
+// Practice (platform-owned exercises)
+// ---------------------------------------------------------------------------
+
+model PracticeExercise {
+  id           BigInt @id @default(autoincrement())
+  publicId     String @unique @db.Char(26) @map("public_id")
+  careerId     BigInt @map("career_id")
+  topicId      BigInt @map("topic_id")
+  order        Int
+  title        String @db.VarChar(200)
+  instructions String @db.Text
+
+  topic    Topic             @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  career   Career            @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  attempts PracticeAttempt[]
+
+  @@index([careerId, order])
+  @@map("practice_exercises")
+}
+
+model PracticeAttempt {
+  id         BigInt   @id @default(autoincrement())
+  publicId   String   @unique @db.Char(26) @map("public_id")
+  exerciseId BigInt   @map("exercise_id")
+  userId     BigInt   @map("user_id")
+  response   String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  exercise PracticeExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, exerciseId])
+  @@map("practice_attempts")
+}
+
+// ---------------------------------------------------------------------------
+// Exams (grading happens on the server only)
+// ---------------------------------------------------------------------------
+
+enum ExamKind {
+  theory
+  practical
+}
+
+model Exam {
+  id        BigInt   @id @default(autoincrement())
+  publicId  String   @unique @db.Char(26) @map("public_id")
+  careerId  BigInt   @map("career_id")
+  chapterId BigInt?  @map("chapter_id")
+  kind      ExamKind
+  title     String   @db.VarChar(200)
+  coverage  Json
+  passScore Int      @map("pass_score")
+  durationMin Int?   @map("duration_min")
+  questions Json?
+
+  career      Career        @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  chapter     Chapter?      @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+  attempts    ExamAttempt[]
+
+  @@index([careerId, kind])
+  @@map("exams")
+}
+
+model ExamAttempt {
+  id         BigInt    @id @default(autoincrement())
+  publicId   String    @unique @db.Char(26) @map("public_id")
+  examId     BigInt    @map("exam_id")
+  userId     BigInt    @map("user_id")
+  answers    Json?
+  score      Int?
+  passed     Boolean?
+  startedAt  DateTime  @default(now()) @map("started_at")
+  submittedAt DateTime? @map("submitted_at")
+
+  exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, examId])
+  @@map("exam_attempts")
+}
+
+// ---------------------------------------------------------------------------
+// Assignments & submissions
+// ---------------------------------------------------------------------------
+
+enum SubmissionStatus {
+  submitted
+  evaluated
+}
+
+model Assignment {
+  id             BigInt @id @default(autoincrement())
+  publicId       String @unique @db.Char(26) @map("public_id")
+  careerId       BigInt @map("career_id")
+  chapterId      BigInt? @map("chapter_id")
+  order          Int
+  stage          String @db.VarChar(30)
+  title          String @db.VarChar(200)
+  objective      String @db.Text
+  requirements   Json
+  skillsEvaluated Json @map("skills_evaluated")
+  dueDays        Int    @map("due_days")
+  difficulty     String @db.VarChar(40)
+  submissionSpec Json   @map("submission_spec")
+
+  career      Career                 @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  chapter     Chapter?               @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+  submissions AssignmentSubmission[]
+
+  @@index([careerId, order])
+  @@index([chapterId])
+  @@map("assignments")
+}
+
+model AssignmentSubmission {
+  id           BigInt           @id @default(autoincrement())
+  publicId     String           @unique @db.Char(26) @map("public_id")
+  assignmentId BigInt           @map("assignment_id")
+  userId       BigInt           @map("user_id")
+  payload      String @db.Text
+  links        Json
+  status       SubmissionStatus @default(submitted)
+  submittedAt  DateTime         @default(now()) @map("submitted_at")
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, assignmentId])
+  @@map("assignment_submissions")
+}
+
+// ---------------------------------------------------------------------------
+// Evaluation / feedback
+// ---------------------------------------------------------------------------
+
+enum EvalTargetType {
+  assignment
+  practical_exam
+  sim_task
+  scenario
+  communication
+  interview
+}
+
+model Evaluation {
+  id              BigInt         @id @default(autoincrement())
+  publicId        String         @unique @db.Char(26) @map("public_id")
+  userId          BigInt         @map("user_id")
+  careerId        BigInt         @map("career_id")
+  targetType      EvalTargetType @map("target_type")
+  targetPublicId  String         @map("target_public_id")
+  targetTitle     String         @map("target_title") @db.VarChar(200)
+  overallScore    Int            @map("overall_score")
+  verdict         String         @db.VarChar(400)
+  strengths       Json
+  weaknesses      Json
+  errorNotes      Json           @map("error_notes")
+  recommendations Json
+  skillLevels     Json           @map("skill_levels")
+  nextArea        String         @map("next_area") @db.VarChar(200)
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, targetType, targetPublicId])
+  @@index([userId, createdAt])
+  @@map("evaluations")
+}
+
+// ---------------------------------------------------------------------------
+// Skill progress
+// ---------------------------------------------------------------------------
+
+model SkillProgress {
+  id             BigInt   @id @default(autoincrement())
+  userId         BigInt   @map("user_id")
+  careerId       BigInt   @map("career_id")
+  skill          String   @db.VarChar(120)
+  percent        Int
+  learningDone   Int      @default(0) @map("learning_done")
+  learningTotal  Int      @default(0) @map("learning_total")
+  examAvg        Int?     @map("exam_avg")
+  assignmentAvg  Int?     @map("assignment_avg")
+  practicalAvg   Int?     @map("practical_avg")
+  simulationAvg  Int?     @map("simulation_avg")
+  communicationAvg Int?   @map("communication_avg")
+  /** Latest evaluated interview score for this skill (not an average). */
+  interviewAvg   Int?     @map("interview_avg")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, careerId, skill])
+  @@map("skill_progress")
+}
+
+// ---------------------------------------------------------------------------
+// Company simulation
+// ---------------------------------------------------------------------------
+
+enum SimPriority {
+  low
+  normal
+  high
+  critical
+}
+
+enum ThreadKind {
+  team
+  client
+}
+
+model SimulationState {
+  id          BigInt   @id @default(autoincrement())
+  publicId    String   @unique @db.Char(26) @map("public_id")
+  userId      BigInt   @map("user_id")
+  careerId    BigInt   @map("career_id")
+  companyName String   @map("company_name") @db.VarChar(120)
+  roleTitle   String   @map("role_title") @db.VarChar(120)
+  status      ProgressStatus @default(in_progress)
+  startedAt   DateTime @default(now()) @map("started_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  career Career @relation(fields: [careerId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, careerId])
+  @@map("simulation_states")
+}
+
+model SimTask {
+  id             BigInt      @id @default(autoincrement())
+  publicId       String      @unique @db.Char(26) @map("public_id")
+  careerId       BigInt      @map("career_id")
+  order          Int
+  title          String      @db.VarChar(200)
+  context        String @db.Text
+  requirements   Json
+  priority       SimPriority
+  dueDayOffset   Int         @map("due_day_offset")
+  expectedOutput String        @db.Text @map("expected_output")
+  skills         Json
+
+  career        Career        @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  userSimTasks  UserSimTask[]
+
+  @@index([careerId, order])
+  @@map("sim_tasks")
+}
+
+model UserSimTask {
+  id          BigInt         @id @default(autoincrement())
+  publicId    String         @unique @db.Char(26) @map("public_id")
+  userId      BigInt         @map("user_id")
+  simTaskId   BigInt         @map("sim_task_id")
+  status      ProgressStatus @default(not_started)
+  response    String?
+  submittedAt DateTime?      @map("submitted_at")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  simTask SimTask @relation(fields: [simTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, simTaskId])
+  @@map("user_sim_tasks")
+}
+
+model CommScenario {
+  id             BigInt     @id @default(autoincrement())
+  publicId       String     @unique @db.Char(26) @map("public_id")
+  careerId       BigInt     @map("career_id")
+  kind           ThreadKind
+  personaName    String     @map("persona_name") @db.VarChar(120)
+  personaRole    String     @map("persona_role") @db.VarChar(120)
+  situation      String @db.Text
+  openingMessage String       @db.Text @map("opening_message")
+  expectedPoints Json       @map("expected_points")
+
+  career Career      @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  threads CommThread[]
+
+  @@index([careerId, kind])
+  @@map("comm_scenarios")
+}
+
+model CommThread {
+  id          BigInt   @id @default(autoincrement())
+  publicId    String   @unique @db.Char(26) @map("public_id")
+  userId      BigInt   @map("user_id")
+  scenarioId  BigInt   @map("scenario_id")
+  messages    Json
+  status      ProgressStatus @default(in_progress)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scenario CommScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, scenarioId])
+  @@map("comm_threads")
+}
+
+model WorkplaceScenario {
+  id             BigInt @id @default(autoincrement())
+  publicId       String @unique @db.Char(26) @map("public_id")
+  careerId       BigInt @map("career_id")
+  category       String @db.VarChar(60)
+  situation      String @db.Text
+  requiredActions Json @map("required_actions")
+
+  career   Career              @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  responses ScenarioResponse[]
+
+  @@index([careerId])
+  @@map("workplace_scenarios")
+}
+
+model ScenarioResponse {
+  id         BigInt   @id @default(autoincrement())
+  publicId   String   @unique @db.Char(26) @map("public_id")
+  userId     BigInt   @map("user_id")
+  scenarioId BigInt   @map("scenario_id")
+  actions    Json
+  score      Int?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scenario WorkplaceScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, scenarioId])
+  @@map("scenario_responses")
+}
+
+// ---------------------------------------------------------------------------
+// Two-stage interviews: virtual/HR screening first, then technical
+// ---------------------------------------------------------------------------
+
+model InterviewQuestion {
+  id         BigInt @id @default(autoincrement())
+  publicId   String @unique @db.Char(26) @map("public_id")
+  careerId   BigInt @map("career_id")
+  /** "hr" for the virtual screening, "technical" for the role interview. */
+  stage      String @default("technical") @db.VarChar(20)
+  order      Int
+  dimension  String @db.VarChar(60)
+  prompt     String @db.Text
+  guidance   Json
+
+  career Career @relation(fields: [careerId], references: [id], onDelete: Cascade)
+
+  @@index([careerId, stage, order])
+  @@map("interview_questions")
+}
+
+model InterviewSession {
+  id         BigInt   @id @default(autoincrement())
+  publicId   String   @unique @db.Char(26) @map("public_id")
+  userId     BigInt   @map("user_id")
+  careerId   BigInt   @map("career_id")
+  /** "hr" or "technical"; existing rows default to technical. */
+  stage      String   @default("technical") @db.VarChar(20)
+  questions  Json
+  answers    Json?
+  /** Per-question AI/rubric reviews captured when the interview is submitted. */
+  answerReviews Json? @map("answer_reviews")
+  status     ProgressStatus @default(in_progress)
+  score      Int?
+  startedAt  DateTime @default(now()) @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, careerId, stage])
+  @@index([userId, status])
+  @@map("interview_sessions")
+}
+
+// ---------------------------------------------------------------------------
+// Portfolio, certificates, readiness
+// ---------------------------------------------------------------------------
+
+model PortfolioItem {
+  id            BigInt   @id @default(autoincrement())
+  publicId      String   @unique @db.Char(26) @map("public_id")
+  userId        BigInt   @map("user_id")
+  careerId      BigInt   @map("career_id")
+  sourceType    String   @map("source_type") @db.VarChar(40)
+  sourcePublicId String  @map("source_public_id") @db.VarChar(64)
+  title         String   @db.VarChar(200)
+  summary       String   @db.VarChar(600)
+  artifacts     Json
+  completedAt   DateTime @default(now()) @map("completed_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sourceType, sourcePublicId])
+  @@index([userId, careerId])
+  @@map("portfolio_items")
+}
+
+model Certificate {
+  id                   BigInt   @id @default(autoincrement())
+  publicId             String   @unique @db.Char(26) @map("public_id")
+  userId               BigInt   @map("user_id")
+  careerId             BigInt   @map("career_id")
+  serial               String   @unique @db.VarChar(40)
+  requirementsSnapshot Json     @map("requirements_snapshot")
+  issuedAt             DateTime @default(now()) @map("issued_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, careerId])
+  @@map("certificates")
+}
+
+model ReadinessRecord {
+  id             BigInt   @id @default(autoincrement())
+  userId         BigInt   @map("user_id")
+  careerId       BigInt   @map("career_id")
+  overallPercent Int      @map("overall_percent")
+  ready          Boolean
+  components     Json
+  missing        Json
+  computedAt     DateTime @default(now()) @map("computed_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, careerId])
+  @@map("readiness_records")
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+enum NotificationKind {
+  assignment_available
+  assignment_deadline
+  exam_available
+  exam_result
+  evaluation_available
+  sim_task
+  interview_available
+  certificate_eligible
+  readiness_update
+}
+
+model Notification {
+  id        BigInt           @id @default(autoincrement())
+  publicId  String           @unique @db.Char(26) @map("public_id")
+  userId    BigInt           @map("user_id")
+  kind      NotificationKind
+  title     String           @db.VarChar(200)
+  body      String           @db.VarChar(400)
+  linkPath  String?          @map("link_path") @db.VarChar(120)
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
