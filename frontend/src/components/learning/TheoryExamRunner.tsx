@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { examsApi } from '../../api/learning'
 import { ROUTES } from '../../constants/routes'
@@ -111,7 +111,14 @@ export function TheoryExamRunner({
   const [phase, setPhase] = useState<'running' | 'submitting'>('running')
   const [result, setResult] = useState<TheoryExamResult | null>(restored?.result ?? null)
   const [reviewed, setReviewed] = useState<string[]>(restored?.reviewed ?? [])
+  const [historyDismissed, setHistoryDismissed] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const data = detail.data
+    if (!data || data.kind !== 'theory' || result || historyDismissed) return
+    if (data.lastAttempt) setResult(data.lastAttempt)
+  }, [detail.data, result, historyDismissed])
 
   if (detail.loading) return <LoadingState />
   if (detail.error) return <ErrorState error={detail.error} />
@@ -149,6 +156,7 @@ export function TheoryExamRunner({
 
   const retry = (): void => {
     clearStoredReview(examPublicId)
+    setHistoryDismissed(true)
     setAnswers({})
     setResult(null)
     setReviewed([])
@@ -185,11 +193,11 @@ export function TheoryExamRunner({
 
     return (
       <Panel
-        title={`${exam.title} · ${result.score}/100`}
+        title={exam.title}
         footer={
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="text-xs tabular-nums text-primary/50">
-              {result.correctCount}/{result.total} correct · pass mark {exam.passScore}/100
+              {result.correctCount}/{result.total} correct
             </span>
             <div className="flex flex-wrap items-start gap-2">
               {onClose ? (
@@ -235,8 +243,8 @@ export function TheoryExamRunner({
           <StatusText tone={result.passed ? 'passed' : 'failed'} />
           <span className="text-sm text-primary/60">
             {result.passed
-              ? 'Theory passed. The practical coding exam is now unlocked.'
-              : `You need ${exam.passScore}/100 to unlock the practical exam. Correct answers stay hidden; use each hint to revisit the referenced lesson segment, then retry.`}
+              ? 'Theory passed and saved. Your answers are available below, and the practical coding exam is unlocked.'
+              : `This attempt is saved. You need ${exam.passScore}/100 to unlock the practical exam. Correct answers stay hidden; use each hint to revisit the referenced lesson segment, then retry.`}
           </span>
         </div>
 
@@ -245,13 +253,14 @@ export function TheoryExamRunner({
             const reference = row.lessonRef ?? null
             const key = reference?.topicPublicId ? reviewKey(reference) : null
             const wasReviewed = key !== null && reviewedSet.has(key)
+            const revealed = Boolean(row.correctAnswer)
             return (
               <li
                 key={index}
                 className={`rounded-md border p-3 ${
                   row.correct
                     ? 'border-border'
-                    : wasReviewed
+                    : revealed || wasReviewed
                       ? 'border-info/30 bg-info/[0.02]'
                       : 'border-attention/35 bg-attention/[0.025]'
                 }`}
@@ -262,13 +271,13 @@ export function TheoryExamRunner({
                   </p>
                   <span
                     className={`shrink-0 text-[11px] font-medium ${
-                      row.correct || wasReviewed ? 'text-info' : 'text-attention'
+                      row.correct || revealed || wasReviewed ? 'text-info' : 'text-attention'
                     }`}
                   >
-                    {row.correct ? 'Correct' : wasReviewed ? 'Reviewed' : 'Review needed'}
+                    {row.correct ? 'Correct' : revealed ? 'Corrected' : wasReviewed ? 'Reviewed' : 'Review needed'}
                   </span>
                 </div>
-                <p className={`mt-1 text-sm ${row.correct ? 'text-info' : 'text-attention'}`}>
+                <p className={`mt-1 text-sm ${row.correct || revealed ? 'text-info' : 'text-attention'}`}>
                   Your answer: {row.yourAnswer}
                 </p>
 
@@ -279,12 +288,22 @@ export function TheoryExamRunner({
                 ) : (
                   <div className="mt-3 rounded-md border border-accent/25 bg-accent/[0.035] px-3 py-2.5">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-accent">
-                      Hint
+                      {row.correctAnswer ? 'Answer review' : 'Hint'}
                     </p>
-                    <p className="mt-1 text-sm leading-relaxed text-primary/80">
-                      {row.hint ??
-                        'Re-read the lesson material for this topic and compare each option against the rule it describes.'}
-                    </p>
+                    {row.correctAnswer ? (
+                      <p className="mt-1 text-sm font-medium leading-relaxed text-info">
+                        Correct answer: {row.correctAnswer}
+                      </p>
+                    ) : null}
+                    {row.explanation ? (
+                      <p className="mt-1 text-sm leading-relaxed text-primary/80">{row.explanation}</p>
+                    ) : null}
+                    {!row.correctAnswer ? (
+                      <p className="mt-1 text-sm leading-relaxed text-primary/80">
+                        {row.hint ??
+                          'Re-read the lesson material for this topic and compare each option against the rule it describes.'}
+                      </p>
+                    ) : null}
 
                     {reference && key ? (
                       <div className="mt-2 flex flex-wrap items-end justify-between gap-2 border-t border-accent/15 pt-2">

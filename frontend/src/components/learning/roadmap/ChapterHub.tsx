@@ -65,12 +65,6 @@ export function ChapterHub({
         <div className="flex flex-wrap items-center gap-2">
           <StatusText tone={status} />
           <span className="text-xs uppercase tracking-widest text-primary/50">{lesson.stage}</span>
-          {lesson.carriesExam && exam ? (
-            <span className="text-xs text-primary/55">
-              Module exam: {exam.title} · pass {exam.passScore}/100
-              {examAlreadyPassed ? ` · best ${exam.bestScore}` : ''}
-            </span>
-          ) : null}
         </div>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-primary/70">{lesson.description}</p>
         <div className="mt-3 max-w-xs">
@@ -96,9 +90,9 @@ export function ChapterHub({
             Assessment · Module exam
           </h2>
           <p className="mt-1 text-sm leading-relaxed text-primary/65">
-            {exam.title} — pass with {exam.passScore}/100 to unlock Lesson{' '}
+            {exam.title} — complete the exam to unlock Lesson{' '}
             {String(lesson.number + 1).padStart(2, '0')}.
-            {examAlreadyPassed ? ` You already passed with best score ${exam.bestScore}. Retaking is allowed.` : ''}
+            {examAlreadyPassed ? ' You already passed. Retaking is allowed.' : ''}
           </p>
           <div className="mt-3">
             {examOpen ? (

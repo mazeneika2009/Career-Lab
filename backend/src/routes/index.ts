@@ -14,6 +14,7 @@ import {
   achievementsRouter,
   notificationsRouter
 } from './learning.routes.js'
+import { jobHubRouter } from './job-hub.routes.js'
 
 export const apiV1Router = Router()
 
@@ -33,3 +34,4 @@ apiV1Router.use('/simulation', simulationRouter)
 apiV1Router.use('/interview', interviewRouter)
 apiV1Router.use('/achievements', achievementsRouter)
 apiV1Router.use('/notifications', notificationsRouter)
+apiV1Router.use('/job-hub', jobHubRouter)

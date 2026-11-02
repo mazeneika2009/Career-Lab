@@ -53,7 +53,6 @@ export function AssignmentStep({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2 text-xs text-primary/55">
-          <span>Pass mark {assignment.passScore}</span>
           <StatusText tone={passed ? 'passed' : failedAttempt ? 'failed' : 'open'} />
         </div>
       </div>

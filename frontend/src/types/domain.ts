@@ -154,6 +154,14 @@ export interface PracticeExerciseView {
   lastAttemptAt: string | null
 }
 
+export interface ExamAttemptSummary {
+  publicId: string
+  score: number | null
+  passed: boolean | null
+  startedAt: string
+  submittedAt: string | null
+}
+
 export interface ExamListItem {
   publicId: string
   title: string
@@ -161,8 +169,12 @@ export interface ExamListItem {
   passScore: number
   durationMin: number | null
   chapter: { title: string; stage: string } | null
-  attempts: Array<{ publicId: string; score: number | null; passed: boolean | null; startedAt: string; submittedAt: string | null }>
-  bestScore: number
+  attempts: ExamAttemptSummary[]
+  completed: boolean
+  status: 'completed' | 'attempted' | 'not_started'
+  bestScore: number | null
+  finalScore: number | null
+  lastAttemptAt: string | null
 }
 
 export interface TheoryExamDetail {
@@ -175,6 +187,22 @@ export interface TheoryExamDetail {
   chapterTitle: string
   lessonNumber: number
   questions: Array<{ prompt: string; options: string[] }>
+  completed: boolean
+  bestScore: number | null
+  finalScore: number | null
+  attemptCount: number
+  attempts: ExamAttemptSummary[]
+  lastAttempt: TheoryExamResult | null
+}
+
+export interface PracticalExamHistory {
+  attemptPublicId: string
+  score: number
+  passed: boolean
+  submittedAt: string
+  code: string | null
+  evaluationPublicId: string | null
+  feedback: PracticalExamResult['feedback'] | null
 }
 
 export interface PracticalExamDetail {
@@ -193,7 +221,12 @@ export interface PracticalExamDetail {
   lessonTitle: string
   lessonNumber: number
   chapterPublicId: string
-  chapterTitle: string
+  completed: boolean
+  bestScore: number | null
+  finalScore: number | null
+  attemptCount: number
+  attempts: ExamAttemptSummary[]
+  lastAttempt: PracticalExamHistory | null
 }
 
 export interface PracticalRequirementResult {
@@ -316,6 +349,7 @@ export interface TheoryExamReviewRow {
   explanation?: string
   /** Teaching hint shown instead of the correct answer on a miss. */
   hint?: string
+  correctAnswer?: string
   hintSource?: 'ai' | 'deterministic'
   lessonRef?: TheoryLessonReference | null
 }
@@ -620,4 +654,74 @@ export interface ReadinessData {
   workplacePerformance: number | null
   interviewPerformance: number | null
   practicalPerformance: number | null
+}
+
+export type JobApplicationStatus =
+  | 'applied'
+  | 'interviewing'
+  | 'offer'
+  | 'rejected'
+  | 'withdrawn'
+
+export interface JobHubCareer {
+  slug: string
+  name: string
+  roleTitle: string
+  category: string
+  mainSkills: string[]
+}
+
+export interface JobPostingView {
+  publicId: string
+  title: string
+  companyName: string
+  location: string
+  workMode: string
+  employmentType: string
+  experienceLevel: string
+  sourcePlatform: string
+  externalUrl: string
+  salaryRange: string | null
+  description: string
+  skills: string[]
+  postedAt: string
+  saved: boolean
+  matchScore: number
+  applicationStatus: JobApplicationStatus | null
+}
+
+export interface JobHubData {
+  locked: boolean
+  career: JobHubCareer
+  certificate: { serial: string; issuedAt: string } | null
+  jobs: JobPostingView[]
+  total: number
+  savedCount: number
+  appliedCount: number
+  filters: {
+    locations: string[]
+    employmentTypes: string[]
+    experienceLevels: string[]
+    workModes: string[]
+  }
+}
+
+export interface JobHubQuery {
+  search?: string
+  location?: string
+  employmentType?: string
+  experienceLevel?: string
+  workMode?: string
+}
+
+export interface SavedJobToggleResult {
+  jobPublicId: string
+  saved: boolean
+}
+
+export interface JobApplicationResult {
+  jobPublicId: string
+  publicId: string
+  status: JobApplicationStatus
+  appliedAt: string
 }

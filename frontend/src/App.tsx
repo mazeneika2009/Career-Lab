@@ -59,6 +59,7 @@ const InterviewPage = lazy(() => import('./pages/app/InterviewPage'))
 const PortfolioPage = lazy(() => import('./pages/app/PortfolioPage'))
 const CertificatePage = lazy(() => import('./pages/app/CertificatePage'))
 const ReadinessPage = lazy(() => import('./pages/app/ReadinessPage'))
+const JobHubPage = lazy(() => import('./pages/app/JobHubPage'))
 const NotificationsPage = lazy(() => import('./pages/app/NotificationsPage'))
 
 function lazyEl(node: React.ReactNode): React.JSX.Element {
@@ -115,6 +116,7 @@ const router = createBrowserRouter([
       { path: ROUTES.portfolio, element: lazyEl(<PortfolioPage />) },
       { path: ROUTES.certificate, element: lazyEl(<CertificatePage />) },
       { path: ROUTES.readiness, element: lazyEl(<ReadinessPage />) },
+      { path: ROUTES.jobHub, element: lazyEl(<JobHubPage />) },
       { path: ROUTES.notifications, element: lazyEl(<NotificationsPage />) }
     ]
   },

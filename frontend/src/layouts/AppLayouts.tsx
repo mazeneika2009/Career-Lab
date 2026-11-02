@@ -6,12 +6,15 @@ import { useSessionStore } from '../store/sessionStore'
 import { Button } from '../components/ui/button/Button'
 import { Icon } from '../components/ui/icon/Icon'
 import { useSimulationGate } from '../hooks/useSimulationGate'
+import { useCertificateGate } from '../hooks/useCertificateGate'
 import { cn } from '../utils/cn'
 import { isNavItemLocked, navLockHint, type WorkAccess } from './workplaceAccess'
 
+type NavAccess = WorkAccess | 'jobHub'
+
 const NAV_GROUPS: Array<{
   label: string
-  items: Array<{ to: string; label: string; access?: WorkAccess }>
+  items: Array<{ to: string; label: string; access?: NavAccess }>
 }> = [
   {
     label: 'Learn',
@@ -61,6 +64,12 @@ const NAV_GROUPS: Array<{
     ]
   },
   {
+    label: 'Launch',
+    items: [
+      { to: ROUTES.jobHub, label: 'Job Opportunities', access: 'jobHub' }
+    ]
+  },
+  {
     label: 'Account',
     items: [
       { to: ROUTES.careers, label: 'Career Selection' },
@@ -92,7 +101,7 @@ function NavItem({
   lockHint,
   onNavigate
 }: {
-  item: { to: string; label: string; access?: WorkAccess }
+  item: { to: string; label: string; access?: NavAccess }
   locked?: boolean
   lockHint?: string
   onNavigate?: () => void
@@ -147,6 +156,11 @@ function NavItem({
 function NavGroups({ onNavigate }: { onNavigate?: () => void }): React.JSX.Element {
   const location = useLocation()
   const { gate } = useSimulationGate(location.pathname)
+  const certificateRefreshKey =
+    location.pathname === ROUTES.certificate || location.pathname === ROUTES.jobHub
+      ? location.pathname
+      : null
+  const certificate = useCertificateGate(certificateRefreshKey)
 
   return (
     <>
@@ -156,16 +170,29 @@ function NavGroups({ onNavigate }: { onNavigate?: () => void }): React.JSX.Eleme
             {group.label}
           </p>
           <ul className="space-y-0.5">
-            {group.items.map((item) => (
-              <li key={item.to}>
-                <NavItem
-                  item={item}
-                  locked={isNavItemLocked(item.access, gate)}
-                  lockHint={navLockHint(item.access, gate)}
-                  onNavigate={onNavigate}
-                />
-              </li>
-            ))}
+            {group.items.map((item) => {
+              const jobHubLocked = item.access === 'jobHub' && !certificate.issued
+              const locked =
+                item.access === 'jobHub'
+                  ? jobHubLocked
+                  : isNavItemLocked(item.access, gate)
+              const lockHint =
+                item.access === 'jobHub'
+                  ? certificate.loading
+                    ? 'Checking your certificate…'
+                    : 'Earn your career certificate to unlock the Career Bridge.'
+                  : navLockHint(item.access, gate)
+              return (
+                <li key={item.to}>
+                  <NavItem
+                    item={item}
+                    locked={locked}
+                    lockHint={lockHint}
+                    onNavigate={onNavigate}
+                  />
+                </li>
+              )
+            })}
           </ul>
         </div>
       ))}

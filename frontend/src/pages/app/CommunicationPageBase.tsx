@@ -245,8 +245,8 @@ function ThreadCard({
           <p className="mt-0.5 text-xs leading-relaxed text-primary/60">{thread.situation}</p>
         </div>
         {locked ? (
-          <span className="shrink-0 text-sm font-semibold tabular-nums text-primary">
-            {thread.score !== null ? `${thread.score}/100` : 'Resolved'}
+          <span className="shrink-0 text-xs text-primary/55">
+            Resolved
           </span>
         ) : (
           <span className="shrink-0 text-xs uppercase tracking-wide text-accent">

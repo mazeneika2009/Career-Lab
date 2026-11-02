@@ -12,14 +12,19 @@ import type {
   DashboardData,
   DeadlineItem,
   EvaluationView,
+  ExamListItem,
   InterviewSessionView,
   InterviewStage,
+  JobApplicationResult,
+  JobHubData,
+  JobHubQuery,
   LearningPathData,
   PerformanceReviewData,
   PortfolioData,
   PracticalExamDetail,
   PracticalExamResult,
   ReadinessData,
+  SavedJobToggleResult,
   ScenarioView,
   SimOverview,
   SimulationGateView,
@@ -107,23 +112,6 @@ export const examsApi = {
       method: 'POST',
       body: { code, ...(language ? { language } : {}) }
     })
-}
-
-export interface ExamListItem {
-  publicId: string
-  title: string
-  coverage: unknown
-  passScore: number
-  durationMin: number | null
-  chapter: { title: string; stage: string } | null
-  attempts: Array<{
-    publicId: string
-    score: number | null
-    passed: boolean | null
-    startedAt: string
-    submittedAt: string | null
-  }>
-  bestScore: number
 }
 
 export const assignmentsApi = {
@@ -226,6 +214,25 @@ export const achievementsApi = {
   portfolio: () => apiRequest<PortfolioData>('/achievements/portfolio'),
   certificate: () => apiRequest<CertificateStatus>('/achievements/certificate'),
   readiness: () => apiRequest<ReadinessData>('/achievements/readiness')
+}
+
+export const jobHubApi = {
+  list: (params?: JobHubQuery) => {
+    const qs = new URLSearchParams()
+    if (params?.search) qs.set('search', params.search)
+    if (params?.location) qs.set('location', params.location)
+    if (params?.employmentType) qs.set('employmentType', params.employmentType)
+    if (params?.experienceLevel) qs.set('experienceLevel', params.experienceLevel)
+    if (params?.workMode) qs.set('workMode', params.workMode)
+    const suffix = qs.toString() ? `?${qs.toString()}` : ''
+    return apiRequest<JobHubData>(`/job-hub${suffix}`)
+  },
+  save: (jobPublicId: string) =>
+    apiRequest<SavedJobToggleResult>(`/job-hub/jobs/${jobPublicId}/save`, { method: 'POST' }),
+  unsave: (jobPublicId: string) =>
+    apiRequest<SavedJobToggleResult>(`/job-hub/jobs/${jobPublicId}/save`, { method: 'DELETE' }),
+  apply: (jobPublicId: string) =>
+    apiRequest<JobApplicationResult>(`/job-hub/jobs/${jobPublicId}/apply`, { method: 'POST' })
 }
 
 export const notificationsApi = {

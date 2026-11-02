@@ -297,12 +297,7 @@ export default function UnifiedLearningPage(): React.JSX.Element {
                     <Icon name="check-circle" className="h-3 w-3" />
                     Lesson complete
                   </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/25 bg-accent/[0.05] px-2.5 py-1 text-[10px] font-semibold text-accent">
-                    <Icon name="clock" className="h-3 w-3" />
-                    {step.label}
-                  </span>
-                )}
+                ) : null}
                 <button
                   type="button"
                   onClick={() => setOutlineOpen((open) => !open)}
@@ -488,7 +483,6 @@ export default function UnifiedLearningPage(): React.JSX.Element {
                 examPublicId={lesson.practical.examPublicId}
                 lessonNumber={lesson.number}
                 alreadyPassed={lesson.practical.passed}
-                bestScore={lesson.practical.bestScore}
                 onGraded={() => {
                   void reloadFlow()
                 }}

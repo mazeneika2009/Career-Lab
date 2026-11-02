@@ -38,5 +38,6 @@ export const ROUTES = {
   portfolio: '/portfolio',
   certificate: '/certificate',
   readiness: '/readiness',
+  jobHub: '/job-hub',
   notifications: '/notifications'
 } as const

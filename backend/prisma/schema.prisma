@@ -73,6 +73,8 @@ model User {
   certificates      Certificate[]
   readinessRecords  ReadinessRecord[]
   notifications     Notification[]
+  savedJobs         SavedJob[]
+  jobApplications   JobApplication[]
 
   @@index([status])
   @@map("users")
@@ -820,4 +822,73 @@ model Notification {
 
   @@index([userId, createdAt])
   @@map("notifications")
+}
+
+// ---------------------------------------------------------------------------
+// Career Bridge / Job Opportunities
+// ---------------------------------------------------------------------------
+
+enum JobApplicationStatus {
+  applied
+  interviewing
+  offer
+  rejected
+  withdrawn
+}
+
+model JobPosting {
+  id              BigInt   @id @default(autoincrement())
+  publicId        String   @unique @db.Char(26) @map("public_id")
+  title           String   @db.VarChar(160)
+  companyName     String   @map("company_name") @db.VarChar(120)
+  location        String   @db.VarChar(120)
+  workMode        String   @map("work_mode") @db.VarChar(20)
+  employmentType  String   @map("employment_type") @db.VarChar(24)
+  experienceLevel String   @map("experience_level") @db.VarChar(24)
+  sourcePlatform  String   @map("source_platform") @db.VarChar(40)
+  externalUrl     String   @unique @map("external_url") @db.VarChar(700)
+  salaryRange     String?  @map("salary_range") @db.VarChar(80)
+  description     String   @db.VarChar(800)
+  skills          Json
+  careerSlugs     Json     @map("career_slugs")
+  postedAt        DateTime @default(now()) @map("posted_at")
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  savedBy      SavedJob[]
+  applications JobApplication[]
+
+  @@index([active, postedAt])
+  @@map("job_postings")
+}
+
+model SavedJob {
+  id           BigInt   @id @default(autoincrement())
+  userId       BigInt   @map("user_id")
+  jobPostingId BigInt   @map("job_posting_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobPostingId])
+  @@index([userId, createdAt])
+  @@map("saved_jobs")
+}
+
+model JobApplication {
+  id           BigInt               @id @default(autoincrement())
+  publicId     String               @unique @db.Char(26) @map("public_id")
+  userId       BigInt               @map("user_id")
+  jobPostingId BigInt               @map("job_posting_id")
+  status       JobApplicationStatus @default(applied)
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobPostingId])
+  @@index([userId, status])
+  @@map("job_applications")
 }

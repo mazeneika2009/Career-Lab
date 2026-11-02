@@ -44,18 +44,41 @@ function editorLanguage(language: string): string {
   return LANGUAGE_ALIASES[normalized] ?? normalized
 }
 
+function historicalResult(exam: PracticalExamDetail): PracticalExamResult | null {
+  const prior = exam.lastAttempt
+  if (!prior) return null
+  return {
+    attemptPublicId: prior.attemptPublicId,
+    submissionPublicId: prior.attemptPublicId,
+    evaluationPublicId: prior.evaluationPublicId ?? '',
+    score: prior.score,
+    passed: prior.passed,
+    feedback: prior.feedback ?? {
+      summary: prior.passed
+        ? 'This attempt passed. The submitted solution below is the version that was reviewed.'
+        : `This attempt scored ${prior.score}/100. Refine the highlighted requirements and submit again.`,
+      strengths: [],
+      improvements: [],
+      missingRequirements: [],
+      requirementResults: []
+    },
+    gradedBy: 'deterministic',
+    model: null,
+    nextLessonUnlocked: prior.passed,
+    submittedAt: prior.submittedAt
+  }
+}
+
 export function PracticalExamWorkspace({
   examPublicId,
   lessonNumber,
   alreadyPassed,
-  bestScore,
   onGraded,
   onContinue
 }: {
   examPublicId: string
   lessonNumber: number
   alreadyPassed: boolean
-  bestScore: number | null
   onGraded: () => void
   onContinue: () => void
 }): React.JSX.Element {
@@ -71,18 +94,20 @@ export function PracticalExamWorkspace({
 
   useEffect(() => {
     if (!exam) return
-    setCode(exam.starterCode)
-    setResult(null)
+    const prior = historicalResult(exam)
+    setCode(prior && exam.lastAttempt?.code ? exam.lastAttempt.code : exam.starterCode)
+    setResult(prior)
     setError(null)
     setPhase('editing')
-    setGuideTab('brief')
-    setMobilePane('brief')
+    setGuideTab(prior ? 'feedback' : 'brief')
+    setMobilePane(prior ? 'feedback' : 'brief')
   }, [exam])
 
   const language = exam ? editorLanguage(exam.language) : 'javascript'
   const extension = LANGUAGE_EXTENSIONS[language] ?? 'txt'
   const lineCount = useMemo(() => code.split('\n').length, [code])
   const isEdited = exam ? code !== exam.starterCode : false
+  const completed = alreadyPassed || exam?.completed === true || result?.passed === true
 
   if (detail.loading) return <LoadingState />
   if (detail.error) return <ErrorState error={detail.error} />
@@ -135,41 +160,20 @@ export function PracticalExamWorkspace({
           <span className="flex-1 bg-warning" />
           <span className="flex-1 bg-success" />
         </div>
-        <div className="flex flex-wrap items-start justify-between gap-4 px-5 py-5 sm:px-6">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/45">
-              Lesson {String(lessonNumber).padStart(2, '0')} / Practical exam
-            </p>
-            <h2 className="mt-1 text-balance font-display text-xl font-bold tracking-tight text-primary sm:text-2xl">
-              {exam.title}
-            </h2>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <MetaChip icon="terminal" label={exam.languageLabel} />
-              <MetaChip icon="target" label={`Pass mark ${exam.passScore}/100`} />
-              {bestScore !== null ? <MetaChip icon="award" label={`Best ${bestScore}/100`} /> : null}
-            </div>
-          </div>
-          <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-            {alreadyPassed ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-info/25 bg-info/[0.07] px-2.5 py-1 text-[11px] font-semibold text-info">
-                <Icon name="check-circle" className="h-3.5 w-3.5" />
-                Practical complete
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/25 bg-accent/[0.06] px-2.5 py-1 text-[11px] font-semibold text-accent">
-                <Icon name="clock" className="h-3.5 w-3.5" />
-                In progress
-              </span>
-            )}
-            <p className="text-[11px] text-primary/45">Reviewed server-side</p>
-          </div>
+        <div className="px-5 py-5 sm:px-6">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/45">
+            Lesson {String(lessonNumber).padStart(2, '0')} / Practical exam
+          </p>
+          <h2 className="mt-1 text-balance font-display text-xl font-bold tracking-tight text-primary sm:text-2xl">
+            {exam.title}
+          </h2>
         </div>
-        {alreadyPassed && bestScore !== null ? (
+        {completed ? (
           <div className="flex items-start gap-2 border-t border-info/20 bg-info/[0.035] px-5 py-2.5 text-xs leading-relaxed text-primary/65 sm:px-6">
             <Icon name="award" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-info" />
             <span>
-              You already passed this exam with {bestScore}/100. You can refine your solution and submit
-              another attempt at any time.
+              You already passed this exam. Your last submitted solution and reviewer feedback are restored below for review.{' '}
+              You can refine your solution and submit another attempt at any time.
             </span>
           </div>
         ) : null}
@@ -369,15 +373,6 @@ export function PracticalExamWorkspace({
   )
 }
 
-function MetaChip({ icon, label }: { icon: IconName; label: string }): React.JSX.Element {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-bg/35 px-2.5 py-1 text-[11px] font-medium text-primary/65">
-      <Icon name={icon} className="h-3.5 w-3.5 text-accent/80" />
-      {label}
-    </span>
-  )
-}
-
 function GuideTabButton({
   active,
   label,
@@ -554,8 +549,7 @@ function RubricPanel({ exam }: { exam: PracticalExamDetail }): React.JSX.Element
       <div className="flex items-start gap-2.5 rounded-lg border border-info/25 bg-info/[0.04] px-3.5 py-3">
         <Icon name="check-circle" className="mt-0.5 h-4 w-4 shrink-0 text-info" />
         <div>
-          <p className="text-sm font-medium text-info">Pass mark {exam.passScore}/100</p>
-          <p className="mt-1 text-xs leading-relaxed text-primary/60">
+          <p className="text-xs leading-relaxed text-primary/60">
             Passing this exam unlocks the lesson assignment. You can resubmit to improve your score.
           </p>
         </div>

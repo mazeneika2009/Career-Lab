@@ -54,6 +54,9 @@ export type IconName =
   | 'zap'
   | 'lock'
   | 'calendar'
+  | 'bookmark'
+  | 'map-pin'
+  | 'briefcase'
 
 const ICONS = {
   dashboard: (
@@ -353,6 +356,24 @@ const ICONS = {
       <path d="M8 2v4" />
       <path d="M16 2v4" />
       <path d="M3 10h18" />
+    </>
+  ),
+  bookmark: (
+    <>
+      <path d="M6 4.5A2.5 2.5 0 0 1 8.5 2h7A2.5 2.5 0 0 1 18 4.5V21l-6-4-6 4V4.5Z" />
+    </>
+  ),
+  'map-pin': (
+    <>
+      <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </>
+  ),
+  briefcase: (
+    <>
+      <rect x="3" y="7" width="18" height="13" rx="2.5" />
+      <path d="M9 7V5.5A2.5 2.5 0 0 1 11.5 3h1A2.5 2.5 0 0 1 15 5.5V7" />
+      <path d="M3 12h18" />
     </>
   )
 } satisfies Record<IconName, ReactNode>

@@ -113,11 +113,6 @@ export default function AssignmentSubmissionPage(): React.JSX.Element {
               <KeyValue label="Stage" value={a.stage} />
               <KeyValue label="Difficulty" value={a.difficulty} />
               <KeyValue label="Due" value={`Day ${a.dueDays}`} />
-              <KeyValue label="Pass mark" value="70 / 100" />
-              <KeyValue
-                label="Current score"
-                value={a.score !== null ? `${a.score} / 100` : 'Not submitted'}
-              />
               <KeyValue label="Skills evaluated" value={(a.skillsEvaluated as string[]).join(', ')} />
             </dl>
           </Panel>

@@ -83,11 +83,6 @@ function ScenarioCard({ scenario, onDone }: { scenario: { publicId: string; cate
         ) : (
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm text-primary/70">Decisions committed.</span>
-            {(feedback ?? null) || scenario.score !== null ? (
-              <span className="text-sm font-semibold tabular-nums text-primary">
-                {feedback?.score ?? scenario.score}/100
-              </span>
-            ) : null}
           </div>
         )
       }

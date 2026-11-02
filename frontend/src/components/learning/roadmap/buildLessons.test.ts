@@ -39,7 +39,11 @@ function exam(chapterTitle: string, passed: boolean): ExamListItem {
     attempts: passed
       ? [{ publicId: 'a1', score: 90, passed: true, startedAt: '', submittedAt: '' }]
       : [],
-    bestScore: passed ? 90 : 0
+    completed: passed,
+    status: passed ? 'completed' : 'not_started',
+    bestScore: passed ? 90 : null,
+    finalScore: passed ? 90 : null,
+    lastAttemptAt: passed ? '' : null
   }
 }
 

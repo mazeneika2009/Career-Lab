@@ -50,9 +50,6 @@ export default function WorkplaceTasksPage(): React.JSX.Element {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  {t.score !== null ? (
-                    <span className="text-sm font-semibold tabular-nums text-primary">{t.score}/100</span>
-                  ) : null}
                   <StatusText tone={t.status === 'completed' && t.score !== null ? 'completed' : t.status} />
                 </div>
               </div>
@@ -126,7 +123,7 @@ function TaskSubmitter({
 
   if (score !== null) {
     return (
-      <Panel title={`Submitted · scored ${score}/100`}>
+      <Panel title="Submitted">
         <p className="text-sm text-primary/75">The evaluation with strengths and recommendations is available under Evaluations.</p>
         <Button variant="secondary" size="sm" onClick={onClose} className="mt-3">Back to tasks</Button>
       </Panel>

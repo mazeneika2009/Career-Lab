@@ -69,7 +69,6 @@ export default function AssignmentsPage(): React.JSX.Element {
                   {a.lesson ? <span>{a.lesson.title}</span> : null}
                   <span>Due: day {a.dueDays}</span>
                   <span>Skills evaluated: {(a.skillsEvaluated ?? []).join(', ')}</span>
-                  {a.score !== null ? <span>Latest score: {a.score}/100</span> : null}
                 </div>
 
                 {locked ? (

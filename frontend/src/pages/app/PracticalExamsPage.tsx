@@ -33,13 +33,9 @@ export default function PracticalExamsPage(): React.JSX.Element {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h2 className="text-base font-semibold tracking-tight text-primary">{exam.title}</h2>
-                    <p className="mt-1 text-xs text-primary/55">Passing requirement: {exam.passScore}/100</p>
                   </div>
                   {exam.attempts.length > 0 ? (
-                    <div className="flex items-center gap-2">
-                      <StatusText tone={exam.attempts[0]?.passed ? 'passed' : 'failed'} />
-                      <span className="text-sm font-semibold tabular-nums text-primary">{exam.bestScore}</span>
-                    </div>
+                    <StatusText tone={exam.completed ? 'passed' : 'failed'} />
                   ) : (
                     <StatusText tone="not_started" />
                   )}
@@ -53,7 +49,11 @@ export default function PracticalExamsPage(): React.JSX.Element {
 
                 <div className="mt-4">
                   <Button size="sm" onClick={() => setOpenExam(exam.publicId)}>
-                    {exam.attempts.length > 0 ? 'Review / retake' : 'Open task'}
+                    {exam.completed
+                      ? 'Review completed exam'
+                      : exam.attempts.length > 0
+                        ? 'Review / retake'
+                        : 'Open task'}
                   </Button>
                 </div>
               </Panel>
@@ -79,7 +79,7 @@ function PracticalRunner({ examPublicId, onClose }: { examPublicId: string; onCl
 
   if (result) {
     return (
-      <Panel title={`Assessed · ${result.score}/100`}>
+      <Panel title="Assessed">
         <div className="mb-4">
           <StatusText tone={result.passed ? 'passed' : 'failed'} />
         </div>

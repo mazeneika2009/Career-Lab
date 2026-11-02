@@ -93,16 +93,12 @@ export default function SimulationDashboardPage(): React.JSX.Element {
           <InterviewStageRow
             label="Virtual interview"
             status={hr?.status ?? 'not_started'}
-            score={hr?.score ?? null}
-            verified={hr?.verified ?? false}
             href={ROUTES.virtualInterview}
             accessible
           />
           <InterviewStageRow
             label="Technical interview"
             status={technical?.status ?? 'not_started'}
-            score={technical?.score ?? null}
-            verified={technical?.verified ?? false}
             href={ROUTES.technicalInterview}
             accessible={hr?.status === 'passed'}
           />
@@ -229,15 +225,11 @@ export default function SimulationDashboardPage(): React.JSX.Element {
 function InterviewStageRow({
   label,
   status,
-  score,
-  verified,
   href,
   accessible
 }: {
   label: string
   status: SimulationInterviewStatus
-  score: number | null
-  verified: boolean
   href: string
   accessible: boolean
 }): React.JSX.Element {
@@ -245,10 +237,6 @@ function InterviewStageRow({
     <div className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
       <div className="min-w-0">
         <p className={`truncate text-sm ${accessible ? 'text-primary' : 'text-primary/40'}`}>{label}</p>
-        <p className="mt-0.5 text-xs text-primary/50">
-          {score !== null ? `${score}/100` : 'Not evaluated yet'}
-          {verified ? ' · Verified' : ''}
-        </p>
       </div>
       <StatusText tone={status} />
     </div>

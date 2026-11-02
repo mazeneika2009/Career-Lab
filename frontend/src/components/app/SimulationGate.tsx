@@ -115,7 +115,7 @@ export function SimulationGate({
         />
         {!firstStage && gate.hr.verified ? (
           <p className="mt-3 text-center text-xs text-primary/50">
-            Virtual interview verified · {gate.hr.score}/100
+            Virtual interview verified
           </p>
         ) : null}
       </div>

@@ -117,12 +117,7 @@ export default function DashboardPage(): React.JSX.Element {
         <Panel title="Latest evaluation" icon="message-square">
           {d.latestEvaluation ? (
             <>
-              <div className="flex items-baseline justify-between gap-2">
-                <p className="truncate text-sm font-medium text-primary">{d.latestEvaluation.targetTitle}</p>
-                <span className="shrink-0 text-lg font-semibold tabular-nums text-primary">
-                  {d.latestEvaluation.overallScore}
-                </span>
-              </div>
+              <p className="truncate text-sm font-medium text-primary">{d.latestEvaluation.targetTitle}</p>
               <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-primary/60">{d.latestEvaluation.verdict}</p>
             </>
           ) : (

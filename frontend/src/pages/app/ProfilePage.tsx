@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { usersApi } from '../../api'
-import { learningApi, achievementsApi } from '../../api/learning'
+import { learningApi, achievementsApi, jobHubApi } from '../../api/learning'
 import { useAsync } from '../../hooks/useAsync'
 import { ROUTES } from '../../constants/routes'
 import {
@@ -18,6 +18,7 @@ export default function ProfilePage(): React.JSX.Element {
   const dash = useAsync(() => learningApi.dashboard(), [])
   const skills = useAsync(() => learningApi.skills(), [])
   const portfolio = useAsync(() => achievementsApi.portfolio(), [])
+  const jobHub = useAsync(() => jobHubApi.list(), [])
 
   if (me.loading) return <LoadingState />
   if (me.error) return <ErrorState error={me.error} />
@@ -109,6 +110,35 @@ export default function ProfilePage(): React.JSX.Element {
             <p className="text-sm text-primary/60">Complete assignments, exams and simulation work to build achievements.</p>
           )}
         </Panel>
+
+        {jobHub.data && !jobHub.data.locked ? (
+          <Panel
+            title="Saved jobs"
+            footer={
+              <Link to={ROUTES.jobHub} className="text-sm text-primary underline decoration-border hover:decoration-accent">
+                Open Job Opportunities
+              </Link>
+            }
+          >
+            {jobHub.data.jobs.some((job) => job.saved) ? (
+              <ul className="space-y-2">
+                {jobHub.data.jobs
+                  .filter((job) => job.saved)
+                  .slice(0, 4)
+                  .map((job) => (
+                    <li key={job.publicId} className="text-sm text-primary">
+                      <span className="font-medium">{job.title}</span>
+                      <span className="text-primary/50"> · {job.companyName}</span>
+                    </li>
+                  ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-primary/60">
+                Bookmark roles in the Career Bridge to build a shortlist here.
+              </p>
+            )}
+          </Panel>
+        ) : null}
       </div>
     </div>
   )

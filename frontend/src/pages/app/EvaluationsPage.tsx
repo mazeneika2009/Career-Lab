@@ -45,10 +45,6 @@ export default function EvaluationsPage(): React.JSX.Element {
                     </p>
                     <h2 className="mt-0.5 text-base font-semibold tracking-tight text-primary">{e.targetTitle}</h2>
                   </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-semibold tabular-nums text-primary">{e.overallScore}</p>
-                    <p className="text-xs text-primary/50">overall score</p>
-                  </div>
                 </div>
 
                 <p className="mt-4 text-sm leading-relaxed text-primary/80">{e.verdict}</p>

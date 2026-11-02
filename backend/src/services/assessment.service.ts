@@ -77,12 +77,71 @@ interface StoredQuestion {
   explanation: string
 }
 
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : []
+}
+
 function sanitizeQuestions(questions: unknown): Array<{ prompt: string; options: string[] }> {
   if (!Array.isArray(questions)) return []
   return questions.map((q) => {
     const record = q as StoredQuestion
     return { prompt: record.prompt, options: [...record.options] }
   })
+}
+
+function attemptAnswers(raw: unknown): number[] {
+  return Array.isArray(raw)
+    ? raw.map((value) => (typeof value === 'number' && Number.isInteger(value) ? value : -1))
+    : []
+}
+
+function buildTheoryReview(questions: StoredQuestion[], rawAnswers: unknown, revealAnswers: boolean) {
+  const answers = attemptAnswers(rawAnswers)
+  return questions.map((question, index) => {
+    const selected = answers[index] ?? -1
+    const isCorrect = selected === question.answerIndex
+    if (isCorrect) {
+      return {
+        prompt: question.prompt,
+        yourAnswer: question.options[selected] ?? '—',
+        correct: true,
+        explanation: question.explanation
+      }
+    }
+    if (revealAnswers) {
+      return {
+        prompt: question.prompt,
+        yourAnswer: question.options[selected] ?? '—',
+        correct: false,
+        correctAnswer: question.options[question.answerIndex] ?? '—',
+        explanation: question.explanation
+      }
+    }
+    return {
+      prompt: question.prompt,
+      yourAnswer: question.options[selected] ?? '—',
+      correct: false,
+      hint: 'Re-read the matching lesson section, compare it with your reasoning, then retry when you are ready.'
+    }
+  })
+}
+
+function attemptSummary(attempt: {
+  publicId: string
+  score: number | null
+  passed: boolean | null
+  startedAt: Date
+  submittedAt: Date | null
+}) {
+  return {
+    publicId: attempt.publicId,
+    score: attempt.score,
+    passed: attempt.passed,
+    startedAt: attempt.startedAt,
+    submittedAt: attempt.submittedAt
+  }
 }
 
 export async function listExams(userId: bigint, kind: 'theory' | 'practical') {
@@ -100,34 +159,75 @@ export async function listExams(userId: bigint, kind: 'theory' | 'practical') {
     career: { name: active.career.name, slug: active.career.slug },
     exams: exams
       .sort((a, b) => (a.chapter?.order ?? 99) - (b.chapter?.order ?? 99))
-      .map((e) => ({
-        publicId: e.publicId,
-        title: e.title,
-        coverage: e.coverage,
-        passScore: e.passScore,
-        durationMin: e.durationMin,
-        chapter: e.chapter ? { title: e.chapter.title, stage: e.chapter.stage } : null,
-        attempts: e.attempts.map((a) => ({
-          publicId: a.publicId,
-          score: a.score,
-          passed: a.passed,
-          startedAt: a.startedAt,
-          submittedAt: a.submittedAt
-        })),
-        bestScore: Math.max(-1, ...e.attempts.filter((a) => a.score !== null).map((a) => a.score as number))
-      }))
+      .map((e) => {
+        const submitted = e.attempts.filter((attempt) => attempt.submittedAt !== null)
+        const scored = submitted
+          .map((attempt) => attempt.score)
+          .filter((score): score is number => typeof score === 'number')
+        const completed = submitted.some((attempt) => attempt.passed === true)
+        const passingScores = submitted
+          .filter((attempt) => attempt.passed === true)
+          .map((attempt) => attempt.score)
+          .filter((score): score is number => typeof score === 'number')
+        return {
+          publicId: e.publicId,
+          title: e.title,
+          coverage: e.coverage,
+          passScore: e.passScore,
+          durationMin: e.durationMin,
+          chapter: e.chapter ? { title: e.chapter.title, stage: e.chapter.stage } : null,
+          completed,
+          status: completed ? 'completed' : submitted.length > 0 ? 'attempted' : 'not_started',
+          attempts: submitted.map(attemptSummary),
+          bestScore: scored.length > 0 ? Math.max(...scored) : null,
+          finalScore: passingScores.length > 0 ? Math.max(...passingScores) : null,
+          lastAttemptAt: submitted[0]?.submittedAt ?? null
+        }
+      })
   }
 }
 
 export async function getExam(userId: bigint, userPublicId: string, examPublicId: string) {
   const active = await requireActiveCareer(userId)
-  const exam = await prisma.exam.findUnique({ where: { publicId: examPublicId } })
+  const exam = await prisma.exam.findUnique({
+    where: { publicId: examPublicId },
+    include: {
+      chapter: { select: { publicId: true, title: true, order: true, stage: true } }
+    }
+  })
   if (!exam || exam.careerId !== active.career.id) throw AppError.notFound('Exam not found.')
 
-  const lesson = await assertExamAccess(userId, userPublicId, exam)
+  const submittedAttempts = await prisma.examAttempt.findMany({
+    where: { examId: exam.id, userId, submittedAt: { not: null } },
+    orderBy: { submittedAt: 'desc' }
+  })
+  const scoredAttempts = submittedAttempts.filter(
+    (attempt): attempt is typeof attempt & { score: number } => typeof attempt.score === 'number'
+  )
+  const completed = submittedAttempts.some((attempt) => attempt.passed === true)
+  const bestScore = scoredAttempts.length > 0
+    ? Math.max(...scoredAttempts.map((attempt) => attempt.score))
+    : null
+  const passingScores = scoredAttempts
+    .filter((attempt) => attempt.passed === true)
+    .map((attempt) => attempt.score)
+  const finalScore = passingScores.length > 0 ? Math.max(...passingScores) : null
+  const reviewAttempt = completed
+    ? (scoredAttempts
+        .filter((attempt) => attempt.passed === true)
+        .sort((a, b) => b.score - a.score)[0] ?? submittedAttempts[0] ?? null)
+    : (submittedAttempts[0] ?? null)
+
+  let lesson = null
+  if (submittedAttempts.length === 0) {
+    lesson = await assertExamAccess(userId, userPublicId, exam)
+  }
+  const chapterPublicId = lesson?.chapterPublicId ?? exam.chapter?.publicId ?? ''
+  const lessonTitle = lesson?.title ?? exam.chapter?.title ?? exam.title
+  const lessonNumber = lesson?.number ?? exam.chapter?.order ?? 0
+  const history = submittedAttempts.map(attemptSummary)
 
   if (exam.kind === 'theory') {
-    // Answer keys never leave the server.
     const sanitized = sanitizeQuestions(exam.questions)
     return {
       publicId: exam.publicId,
@@ -136,8 +236,34 @@ export async function getExam(userId: bigint, userPublicId: string, examPublicId
       coverage: exam.coverage,
       passScore: exam.passScore,
       durationMin: exam.durationMin,
-      chapterTitle: lesson.title,
-      lessonNumber: lesson.number,
+      chapterTitle: lessonTitle,
+      lessonNumber,
+      completed,
+      bestScore,
+      finalScore,
+      attemptCount: submittedAttempts.length,
+      attempts: history,
+      lastAttempt: reviewAttempt
+        ? {
+            attemptPublicId: reviewAttempt.publicId,
+            score: reviewAttempt.score ?? 0,
+            passed: reviewAttempt.passed === true,
+            correctCount: buildTheoryReview(
+              (exam.questions ?? []) as unknown as StoredQuestion[],
+              reviewAttempt.answers,
+              false
+            ).filter((row) => row.correct).length,
+            total: sanitizeQuestions(exam.questions).length,
+            practicalUnlocked:
+              reviewAttempt.passed === true || lesson?.practical.step.unlocked === true,
+            review: buildTheoryReview(
+              (exam.questions ?? []) as unknown as StoredQuestion[],
+              reviewAttempt.answers,
+              reviewAttempt.passed === true
+            ),
+            submittedAt: reviewAttempt.submittedAt
+          }
+        : null,
       questions: sanitized.map((q) => ({ prompt: q.prompt, options: q.options }))
     }
   }
@@ -148,16 +274,56 @@ export async function getExam(userId: bigint, userPublicId: string, examPublicId
     ? raw.requirements.filter((item): item is string => typeof item === 'string')
     : []
   const rubric = Array.isArray(raw.rubric) ? raw.rubric : []
+  const evaluation = reviewAttempt
+    ? await prisma.evaluation.findUnique({
+        where: {
+          userId_targetType_targetPublicId: {
+            userId,
+            targetType: 'practical_exam',
+            targetPublicId: exam.publicId
+          }
+        }
+      })
+    : null
+  const evaluationMatchesAttempt =
+    evaluation !== null && reviewAttempt !== null && evaluation.overallScore === reviewAttempt.score
   return {
     publicId: exam.publicId,
     kind: exam.kind,
     title: exam.title,
     coverage: exam.coverage,
     passScore: exam.passScore,
+    completed,
+    bestScore,
+    finalScore,
+    attemptCount: submittedAttempts.length,
+    attempts: history,
+    lastAttempt: reviewAttempt
+      ? {
+          attemptPublicId: reviewAttempt.publicId,
+          score: reviewAttempt.score ?? 0,
+          passed: reviewAttempt.passed === true,
+          submittedAt: reviewAttempt.submittedAt,
+          code: typeof reviewAttempt.answers === 'string' ? reviewAttempt.answers : null,
+          evaluationPublicId: evaluationMatchesAttempt ? evaluation.publicId : null,
+          feedback: evaluationMatchesAttempt
+            ? {
+                summary: evaluation.verdict,
+                strengths: asStringArray(evaluation.strengths),
+                improvements: asStringArray(evaluation.recommendations),
+                missingRequirements: [
+                  ...asStringArray(evaluation.weaknesses),
+                  ...asStringArray(evaluation.errorNotes)
+                ].slice(0, 8),
+                requirementResults: []
+              }
+            : null
+        }
+      : null,
     brief:
       typeof raw.brief === 'string' && raw.brief
         ? raw.brief
-        : `Apply the lesson "${lesson.title}" in a hands-on exercise.`,
+        : `Apply the lesson "${lessonTitle}" in a hands-on exercise.`,
     requirements,
     expectedOutput:
       typeof raw.expectedOutput === 'string' && raw.expectedOutput
@@ -171,10 +337,10 @@ export async function getExam(userId: bigint, userPublicId: string, examPublicId
       typeof raw.starterCode === 'string' && raw.starterCode
         ? raw.starterCode
         : '// Implement the requirements for this lesson.\n',
-    lessonTitle: lesson.title,
-    lessonNumber: lesson.number,
-    chapterPublicId: lesson.chapterPublicId,
-    chapterTitle: lesson.title
+    lessonTitle,
+    lessonNumber,
+    chapterPublicId,
+    chapterTitle: lessonTitle
   }
 }
 

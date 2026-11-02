@@ -41,14 +41,10 @@ export default function TheoryExamsPage(): React.JSX.Element {
                       {exam.chapter ? `${exam.chapter.stage} · ${exam.chapter.title}` : 'Final assessment'}
                     </p>
                     <h2 className="mt-0.5 text-base font-semibold tracking-tight text-primary">{exam.title}</h2>
-                    <p className="mt-1 text-xs text-primary/55">Passing requirement: {exam.passScore}/100</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {exam.attempts.length > 0 ? (
-                      <>
-                        <StatusText tone={exam.attempts[0]?.passed ? 'passed' : 'failed'} />
-                        <span className="text-sm font-semibold tabular-nums text-primary">{exam.bestScore}</span>
-                      </>
+                      <StatusText tone={exam.completed ? 'passed' : 'failed'} />
                     ) : (
                       <StatusText tone="not_started" />
                     )}
@@ -66,7 +62,11 @@ export default function TheoryExamsPage(): React.JSX.Element {
 
                 <div className="mt-3">
                   <Button size="sm" onClick={() => setOpenExam(exam.publicId)}>
-                    {exam.attempts.length > 0 ? 'Retake exam' : 'Start exam'}
+                    {exam.completed
+                      ? 'Review completed exam'
+                      : exam.attempts.length > 0
+                        ? 'Retake exam'
+                        : 'Start exam'}
                   </Button>
                 </div>
               </Panel>
