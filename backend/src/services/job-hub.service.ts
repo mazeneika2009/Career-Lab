@@ -5,6 +5,7 @@ import { ulid } from '../utils/ids.js'
 import { buildJobCatalog, type JobCatalogSpec } from '../content/job-catalog.js'
 import { getCertificateStatus } from './achievements.service.js'
 import { requireActiveCareer } from './domain.helpers.js'
+import { isLocalQaUnlocked } from '../config/local-qa.js'
 
 export interface JobHubFilters {
   search?: string
@@ -32,7 +33,6 @@ function jobCareerSlugs(value: unknown): string[] {
 function matchesFilters(
   job: {
     title: string
-    companyName: string
     location: string
     workMode: string
     employmentType: string
@@ -51,7 +51,6 @@ function matchesFilters(
     if (needle) {
       const haystack = [
         job.title,
-        job.companyName,
         job.location,
         job.description,
         ...stringArray(job.skills)
@@ -102,11 +101,82 @@ async function ensureJobCatalog(career: {
   })
   if (specs.length === 0) return
   const existing = await prisma.jobPosting.findMany({
-    where: { externalUrl: { in: specs.map((spec) => spec.externalUrl) } },
-    select: { externalUrl: true }
+    where: { companyName: { in: specs.map((spec) => spec.companyName) } },
+    select: {
+      id: true,
+      companyName: true,
+      externalUrl: true,
+      careerSlugs: true,
+      title: true,
+      experienceLevel: true,
+      description: true,
+      location: true,
+      workMode: true,
+      employmentType: true,
+      sourcePlatform: true,
+      salaryRange: true,
+      skills: true,
+      active: true
+    }
   })
-  const existingUrls = new Set(existing.map((job) => job.externalUrl))
-  const missing = specs.filter((spec) => !existingUrls.has(spec.externalUrl))
+  const existingForCareer = existing.filter((job) =>
+    jobCareerSlugs(job.careerSlugs).includes(career.slug)
+  )
+  const missing: JobCatalogSpec[] = []
+  for (const spec of specs) {
+    const matches = existingForCareer.filter((job) => job.companyName === spec.companyName)
+    const current =
+      matches.find((job) => job.externalUrl === spec.externalUrl) ?? matches[0]
+    if (!current) {
+      missing.push(spec)
+      continue
+    }
+
+    const duplicates = matches.filter((job) => job.id !== current.id && job.active)
+    if (duplicates.length > 0) {
+      await prisma.jobPosting.updateMany({
+        where: { id: { in: duplicates.map((job) => job.id) } },
+        data: { active: false }
+      })
+    }
+
+    const existingSkills = stringArray(current.skills)
+    const sameSkills =
+      existingSkills.length === spec.skills.length &&
+      existingSkills.every((skill, index) => skill === spec.skills[index])
+    if (
+      current.title !== spec.title ||
+      current.experienceLevel !== spec.experienceLevel ||
+      current.description !== spec.description ||
+      current.location !== spec.location ||
+      current.workMode !== spec.workMode ||
+      current.employmentType !== spec.employmentType ||
+      current.sourcePlatform !== spec.sourcePlatform ||
+      current.salaryRange !== spec.salaryRange ||
+      current.externalUrl !== spec.externalUrl ||
+      !sameSkills ||
+      !current.active
+    ) {
+      await prisma.jobPosting.update({
+        where: { id: current.id },
+        data: {
+          title: spec.title,
+          companyName: spec.companyName,
+          location: spec.location,
+          workMode: spec.workMode,
+          employmentType: spec.employmentType,
+          experienceLevel: spec.experienceLevel,
+          sourcePlatform: spec.sourcePlatform,
+          externalUrl: spec.externalUrl,
+          salaryRange: spec.salaryRange,
+          description: spec.description,
+          skills: spec.skills as Prisma.InputJsonValue,
+          careerSlugs: spec.careerSlugs as Prisma.InputJsonValue,
+          active: true
+        }
+      })
+    }
+  }
   if (missing.length === 0) return
   const now = Date.now()
   try {
@@ -141,7 +211,7 @@ async function ensureJobCatalog(career: {
 async function requireJobHubCertificate(userId: bigint) {
   const active = await requireActiveCareer(userId)
   const certificate = await getCertificateStatus(userId)
-  if (certificate.status !== 'issued') {
+  if (!isLocalQaUnlocked() && certificate.status !== 'issued') {
     throw new AppError(
       403,
       'CERTIFICATE_REQUIRED',
@@ -169,7 +239,7 @@ export async function getJobHub(userId: bigint, filters: JobHubFilters) {
   const certificate = await getCertificateStatus(userId)
   const career = active.career
 
-  if (certificate.status !== 'issued') {
+  if (!isLocalQaUnlocked() && certificate.status !== 'issued') {
     return {
       locked: true,
       career: {
@@ -220,7 +290,6 @@ export async function getJobHub(userId: bigint, filters: JobHubFilters) {
     return {
       publicId: job.publicId,
       title: job.title,
-      companyName: job.companyName,
       location: job.location,
       workMode: job.workMode,
       employmentType: job.employmentType,
@@ -237,6 +306,11 @@ export async function getJobHub(userId: bigint, filters: JobHubFilters) {
     }
   })
 
+  const certificateView =
+    certificate.status === 'issued'
+      ? { serial: certificate.certificate.serial, issuedAt: certificate.certificate.issuedAt }
+      : { serial: 'LOCAL-QA', issuedAt: new Date() }
+
   return {
     locked: false,
     career: {
@@ -246,10 +320,7 @@ export async function getJobHub(userId: bigint, filters: JobHubFilters) {
       category: career.category,
       mainSkills
     },
-    certificate: {
-      serial: certificate.certificate.serial,
-      issuedAt: certificate.certificate.issuedAt
-    },
+    certificate: certificateView,
     jobs,
     total: jobs.length,
     savedCount: jobs.filter((job) => job.saved).length,

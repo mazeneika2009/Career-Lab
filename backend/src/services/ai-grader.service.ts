@@ -23,6 +23,8 @@ export interface CodeReviewInput {
   lessonTitle: string
   stage: string
   language: string
+  environment?: string
+  responseLanguage?: 'en' | 'ar'
   brief: string
   requirements: string[]
   expectedOutput: string
@@ -113,6 +115,7 @@ function codeDepthSignal(code: string): number {
  * provider is unavailable, so the learning flow never blocks.
  */
 export function deterministicCodeReview(input: CodeReviewInput): CodeReview {
+  const ar = input.responseLanguage === 'ar'
   const code = input.code.trim()
   const haystack = normalisedCode(code)
   const words = code.split(/\s+/).filter(Boolean).length
@@ -125,7 +128,13 @@ export function deterministicCodeReview(input: CodeReviewInput): CodeReview {
       return {
         requirement,
         met: words >= 20,
-        note: words >= 20 ? 'A concrete attempt is present.' : 'No concrete implementation yet.'
+        note: words >= 20
+          ? ar
+            ? 'توجد محاولة تنفيذ ملموسة.'
+            : 'A concrete attempt is present.'
+          : ar
+            ? 'لا يوجد تنفيذ ملموس بعد.'
+            : 'No concrete implementation yet.'
       }
     }
     const hits = keys.filter((key) => haystack.includes(key)).length
@@ -137,10 +146,16 @@ export function deterministicCodeReview(input: CodeReviewInput): CodeReview {
       requirement,
       met,
       note: met
-        ? `Evidence found for: ${keys.filter((key) => haystack.includes(key)).slice(0, 4).join(', ')}.`
+        ? ar
+          ? `تم العثور على دليل على: ${keys.filter((key) => haystack.includes(key)).slice(0, 4).join(', ')}.`
+          : `Evidence found for: ${keys.filter((key) => haystack.includes(key)).slice(0, 4).join(', ')}.`
         : partial
-          ? 'Partially covered — make this requirement explicit in the code or comments.'
-          : 'Not evidenced — add the missing behaviour and a short comment explaining it.'
+          ? ar
+            ? 'مُغطّى جزئياً — اجعل هذا المتطلب صريحاً في العمل أو الملاحظات.'
+            : 'Partially covered — make this requirement explicit in the code or comments.'
+          : ar
+            ? 'غير مُثبت — أضف السلوك الناقص وتعليقاً قصيراً يشرحه.'
+            : 'Not evidenced — add the missing behaviour and a short comment explaining it.'
     }
   })
 
@@ -160,29 +175,79 @@ export function deterministicCodeReview(input: CodeReviewInput): CodeReview {
 
   const strengths: string[] = []
   if (metCount > 0) {
-    strengths.push(`Your submission addresses ${metCount} of ${input.requirements.length} required outcomes.`)
+    strengths.push(
+      ar
+        ? `يغطي تسليمك ${metCount} من ${input.requirements.length} من المخرجات المطلوبة.`
+        : `Your submission addresses ${metCount} of ${input.requirements.length} required outcomes.`
+    )
   }
-  if (depth >= 0.5) strengths.push('The code has a clear structure with control flow and reusable units.')
-  if (lengthScore >= 0.7) strengths.push('The implementation is developed enough to review as real work.')
+  if (depth >= 0.5) {
+    strengths.push(
+      ar
+        ? 'يتمتع العمل بهيكل واضح مع تدفق منطقي ووحدات قابلة لإعادة الاستخدام.'
+        : 'The code has a clear structure with control flow and reusable units.'
+    )
+  }
+  if (lengthScore >= 0.7) {
+    strengths.push(
+      ar
+        ? 'التنفيذ متطور بما يكفي لمراجعته كعمل حقيقي.'
+        : 'The implementation is developed enough to review as real work.'
+    )
+  }
   if (strengths.length === 0) {
-    strengths.push('You made a start — the next pass should turn the brief into explicit, runnable behaviour.')
+    strengths.push(
+      ar
+        ? 'لقد بدأت — المرور التالي يجب أن يحوّل الموجز إلى سلوك صريح وقابل للتشغيل.'
+        : 'You made a start — the next pass should turn the brief into explicit, runnable behaviour.'
+    )
   }
 
   const improvements: string[] = []
   if (missingRequirements.length > 0) {
-    improvements.push(`Make these outcomes explicit: ${missingRequirements.slice(0, 3).join('; ')}.`)
+    improvements.push(
+      ar
+        ? `اجعل هذه المخرجات صريحة: ${missingRequirements.slice(0, 3).join('؛ ')}.`
+        : `Make these outcomes explicit: ${missingRequirements.slice(0, 3).join('; ')}.`
+    )
   }
-  if (todoCount > 0) improvements.push('Replace TODO/FIXME placeholders with working code before resubmitting.')
-  if (depth < 0.45) improvements.push('Add the core function, branching or data handling the brief asks for.')
-  if (input.expectedOutput) improvements.push(`Show how your solution produces: ${input.expectedOutput}.`)
-  improvements.push('Add a short usage note or example call so the solution can be verified.')
+  if (todoCount > 0) {
+    improvements.push(
+      ar
+        ? 'استبدل عناصر TODO/FIXME بعمل فعلي قبل إعادة الإرسال.'
+        : 'Replace TODO/FIXME placeholders with working code before resubmitting.'
+    )
+  }
+  if (depth < 0.45) {
+    improvements.push(
+      ar
+        ? 'أضف الوظيفة الأساسية أو التفرع أو معالجة البيانات التي يطلبها الموجز.'
+        : 'Add the core function, branching or data handling the brief asks for.'
+    )
+  }
+  if (input.expectedOutput) {
+    improvements.push(
+      ar
+        ? `أظهر كيف ينتج حلك: ${input.expectedOutput}.`
+        : `Show how your solution produces: ${input.expectedOutput}.`
+    )
+  }
+  improvements.push(
+    ar
+      ? 'أضف ملاحظة استخدام قصيرة أو مثال استدعاء حتى يمكن التحقق من الحل.'
+      : 'Add a short usage note or example call so the solution can be verified.'
+  )
 
   return {
     score,
     passed,
     summary: passed
-      ? `The submission meets the ${input.passScore}% bar for ${input.lessonTitle}. It demonstrates the required outcomes and is ready to continue.`
-      : `The submission scores ${score}% against a ${input.passScore}% pass bar. It is a useful start, but the missing outcomes below should be implemented before moving on.`,
+      ? ar
+        ? `يستوفي التسليم حد النجاح ${input.passScore}% لدرس ${input.lessonTitle}. لقد أثبت المخرجات المطلوبة وهو جاهز للمتابعة.`
+        : `The submission meets the ${input.passScore}% bar for ${input.lessonTitle}. It demonstrates the required outcomes and is ready to continue.`
+      : ar
+        ? `حصل التسليم على ${score}% مقابل حد نجاح ${input.passScore}%. إنها بداية مفيدة، لكن يجب تنفيذ المخرجات الناقصة أدناه قبل المتابعة.`
+        : `The submission scores ${score}% against a ${input.passScore}% pass bar. It is a useful start, but the missing outcomes below should be implemented before moving on.`,
     strengths: strengths.slice(0, 4),
     improvements: [...new Set(improvements)].slice(0, 5),
     missingRequirements,
@@ -192,11 +257,20 @@ export function deterministicCodeReview(input: CodeReviewInput): CodeReview {
   }
 }
 
+
 function buildPrompt(input: CodeReviewInput): string {
+  const arabic = input.responseLanguage === 'ar'
   return [
-    'You are a senior software engineering instructor reviewing a practical exam submission.',
-    'Grade the code only against the lesson requirements. Be constructive, specific and honest.',
-    'Do not run the code. Do not reward comments alone. Return ONLY valid JSON with this shape:',
+    'You are a senior instructor reviewing a practical exam submission for a professional career program.',
+    'Grade the work only against the lesson requirements. Be constructive, specific and honest.',
+    'Do not run the submission. Do not reward placeholders or comments alone.',
+    input.environment && input.environment !== 'code'
+      ? `The submission is a ${input.environment} environment artefact, not a conventional code file. Evaluate the deliverable and its reasoning accordingly.`
+      : 'The submission is a code artefact.',
+    arabic
+      ? 'Write every natural-language field (summary, strengths, improvements, missingRequirements, notes) in Modern Standard Arabic. Keep the JSON keys in English and requirement text verbatim.'
+      : 'Write every natural-language field in clear professional English.',
+    'Return ONLY valid JSON with this shape:',
     '{',
     '  "score": 0-100 integer,',
     '  "summary": "2-3 sentence overall verdict",',
@@ -242,7 +316,9 @@ async function callProvider(input: CodeReviewInput): Promise<CodeReview | null> 
           {
             role: 'system',
             content:
-              'You are an exacting but supportive code reviewer. Return only the requested JSON object.'
+              input.responseLanguage === 'ar'
+                ? 'أنت مراجع خبير وداعم. اكتب كل الحقول النصية بالعربية الفصحى وأعد كائن JSON المطلوب فقط.'
+                : 'You are an exacting but supportive reviewer. Return only the requested JSON object.'
           },
           { role: 'user', content: buildPrompt(input) }
         ]

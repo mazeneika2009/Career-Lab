@@ -162,12 +162,23 @@ export interface ExamAttemptSummary {
   submittedAt: string | null
 }
 
+export type PracticalEnvironment =
+  | 'code'
+  | 'database'
+  | 'design'
+  | 'network'
+  | 'ai'
+  | 'business'
+  | 'writing'
+
 export interface ExamListItem {
   publicId: string
   title: string
   coverage: unknown
   passScore: number
   durationMin: number | null
+  environment?: PracticalEnvironment
+  languageLabel?: string
   chapter: { title: string; stage: string } | null
   attempts: ExamAttemptSummary[]
   completed: boolean
@@ -201,6 +212,7 @@ export interface PracticalExamHistory {
   passed: boolean
   submittedAt: string
   code: string | null
+  language?: string
   evaluationPublicId: string | null
   feedback: PracticalExamResult['feedback'] | null
 }
@@ -215,6 +227,7 @@ export interface PracticalExamDetail {
   requirements: string[]
   expectedOutput: string
   rubric: Array<{ skill: string; weight: number; criteria: string }>
+  environment: PracticalEnvironment
   language: string
   languageLabel: string
   starterCode: string
@@ -239,6 +252,7 @@ export interface PracticalExamResult {
   attemptPublicId: string
   submissionPublicId: string
   evaluationPublicId: string
+  environment?: PracticalEnvironment
   score: number
   passed: boolean
   feedback: {
@@ -636,7 +650,14 @@ export interface PortfolioData {
 
 export interface CertificateStatus {
   status: 'issued' | 'not_eligible'
-  certificate?: { publicId: string; serial: string; issuedAt: string }
+  certificate?: {
+    publicId: string
+    serial: string
+    issuedAt: string
+    studentName: string
+    careerName: string
+    careerSlug: string
+  }
   requirements?: {
     checklist: Record<string, unknown>
     missing: string[]
@@ -674,7 +695,6 @@ export interface JobHubCareer {
 export interface JobPostingView {
   publicId: string
   title: string
-  companyName: string
   location: string
   workMode: string
   employmentType: string

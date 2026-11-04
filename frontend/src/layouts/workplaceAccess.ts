@@ -1,4 +1,5 @@
 import type { SimulationGateView } from '../types/domain'
+import { isLocalQaMode } from '../utils/localQa'
 
 /**
  * Sidebar access levels for the sequential workplace flow.
@@ -16,6 +17,7 @@ export function isNavItemLocked(
   gate: SimulationGateView | null
 ): boolean {
   if (!access) return false
+  if (isLocalQaMode()) return false
   // Until the gate has loaded, keep gated items inert instead of letting a
   // click hit a route guard before the real state is known.
   if (!gate) return true
@@ -32,6 +34,7 @@ export function navLockHint(
   gate: SimulationGateView | null
 ): string | undefined {
   if (!access) return undefined
+  if (isLocalQaMode()) return undefined
   if (!gate) return 'Checking your interview progress…'
 
   if (access === 'technical') {

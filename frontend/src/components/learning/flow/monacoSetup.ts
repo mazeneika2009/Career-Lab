@@ -7,6 +7,10 @@ import tsWorker from 'monaco-editor/language/typescript/ts.worker?worker'
 
 // Language services (intellisense/validation) used by the curriculum.
 import {
+  JsxEmit,
+  ModuleKind,
+  ScriptTarget,
+  getTypeScriptWorker,
   javascriptDefaults,
   typescriptDefaults
 } from 'monaco-editor/languages/features/typescript/register'
@@ -69,7 +73,49 @@ javascriptDefaults.setDiagnosticsOptions({
   noSemanticValidation: true,
   noSyntaxValidation: false
 })
+typescriptDefaults.setCompilerOptions({
+  target: ScriptTarget.ES2020,
+  module: ModuleKind.ESNext,
+  jsx: JsxEmit.ReactJSX,
+  allowNonTsExtensions: true
+})
+javascriptDefaults.setCompilerOptions({
+  target: ScriptTarget.ES2020,
+  module: ModuleKind.ESNext,
+  allowNonTsExtensions: true
+})
 
 loader.config({ monaco })
+
+interface MonacoDiagnosticChain {
+  messageText: string
+  next?: MonacoDiagnosticChain[]
+}
+
+function flattenDiagnostic(message: string | MonacoDiagnosticChain): string {
+  if (typeof message === 'string') return message
+  return [message.messageText, ...(message.next ?? []).map(flattenDiagnostic)].join('\n')
+}
+
+export async function compileTypeScript(source: string, path: string): Promise<string> {
+  const uri = monaco.Uri.parse(
+    `file:///sandbox/${Date.now()}-${Math.random().toString(36).slice(2)}/${path}`
+  )
+  const model = monaco.editor.createModel(source, 'typescript', uri)
+  try {
+    const getWorker = await getTypeScriptWorker()
+    const worker = await getWorker(uri)
+    const output = await worker.getEmitOutput(uri.toString())
+    const errors = (output.diagnostics ?? []).filter((diagnostic) => diagnostic.category === 1)
+    if (errors.length > 0) {
+      throw new Error(errors.map((diagnostic) => flattenDiagnostic(diagnostic.messageText)).join('\n'))
+    }
+    const javascript = output.outputFiles.find((file) => /\.(m?js|jsx)$/.test(file.name))?.text
+    if (javascript === undefined) throw new Error('The solution did not produce JavaScript output.')
+    return javascript
+  } finally {
+    model.dispose()
+  }
+}
 
 export { monaco }

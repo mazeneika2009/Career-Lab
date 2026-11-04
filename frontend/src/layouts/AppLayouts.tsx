@@ -7,75 +7,77 @@ import { Button } from '../components/ui/button/Button'
 import { Icon } from '../components/ui/icon/Icon'
 import { useSimulationGate } from '../hooks/useSimulationGate'
 import { useCertificateGate } from '../hooks/useCertificateGate'
+import { useTranslation } from '../i18n'
+import { LanguageToggle } from '../components/app/LanguageToggle'
 import { cn } from '../utils/cn'
 import { isNavItemLocked, navLockHint, type WorkAccess } from './workplaceAccess'
 
 type NavAccess = WorkAccess | 'jobHub'
 
 const NAV_GROUPS: Array<{
-  label: string
-  items: Array<{ to: string; label: string; access?: NavAccess }>
+  labelKey: string
+  items: Array<{ to: string; labelKey: string; access?: NavAccess }>
 }> = [
   {
-    label: 'Learn',
+    labelKey: 'nav.learn',
     items: [
-      { to: ROUTES.dashboard, label: 'Dashboard' },
-      { to: ROUTES.learn, label: 'Course' },
-      { to: ROUTES.learningPath, label: 'Learning Path' }
+      { to: ROUTES.dashboard, labelKey: 'nav.dashboard' },
+      { to: ROUTES.learn, labelKey: 'nav.course' },
+      { to: ROUTES.learningPath, labelKey: 'nav.learningPath' }
     ]
   },
   {
-    label: 'Assess',
+    labelKey: 'nav.assess',
     items: [
-      { to: ROUTES.assignments, label: 'Assignments' },
-      { to: ROUTES.evaluations, label: 'Evaluations' }
+      { to: ROUTES.assignments, labelKey: 'nav.assignments' },
+      { to: ROUTES.evaluations, labelKey: 'nav.evaluations' }
     ]
   },
   {
-    label: 'Grow',
+    labelKey: 'nav.grow',
     items: [
-      { to: ROUTES.skills, label: 'Skill Progress' },
-      { to: ROUTES.roadmap, label: 'Career Roadmap' },
-      { to: ROUTES.performanceReview, label: 'Performance Review' },
-      { to: ROUTES.careerReport, label: 'Career Report' }
+      { to: ROUTES.skills, labelKey: 'nav.skills' },
+      { to: ROUTES.roadmap, labelKey: 'nav.roadmap' },
+      { to: ROUTES.performanceReview, labelKey: 'nav.performanceReview' },
+      { to: ROUTES.careerReport, labelKey: 'nav.careerReport' }
     ]
   },
   {
-    label: 'Work',
+    labelKey: 'nav.work',
     items: [
-      { to: ROUTES.virtualInterview, label: 'Virtual Interview' },
-      { to: ROUTES.technicalInterview, label: 'Technical Interview', access: 'technical' },
+      { to: ROUTES.virtualInterview, labelKey: 'nav.virtualInterview' },
+      { to: ROUTES.technicalInterview, labelKey: 'nav.technicalInterview', access: 'technical' },
       // These two deliberately share the same access level: passing the
       // technical interview unlocks Company Simulation and Team Communication
       // at the exact same moment.
-      { to: ROUTES.simulation, label: 'Company Simulation / Workplace Tasks', access: 'workplace' },
-      { to: ROUTES.teamCommunication, label: 'Team Communication', access: 'workplace' },
-      { to: ROUTES.clientCommunication, label: 'Client Communication', access: 'simulation' },
-      { to: ROUTES.deadlines, label: 'Deadlines & Priorities', access: 'simulation' },
-      { to: ROUTES.scenarios, label: 'Workplace Scenarios', access: 'simulation' }
+      { to: ROUTES.simulation, labelKey: 'nav.simulation', access: 'workplace' },
+      { to: ROUTES.teamCommunication, labelKey: 'nav.teamCommunication', access: 'workplace' },
+      { to: ROUTES.clientCommunication, labelKey: 'nav.clientCommunication', access: 'simulation' },
+      { to: ROUTES.deadlines, labelKey: 'nav.deadlines', access: 'simulation' },
+      { to: ROUTES.scenarios, labelKey: 'nav.scenarios', access: 'simulation' }
     ]
   },
   {
-    label: 'Prove',
+    labelKey: 'nav.prove',
     items: [
-      { to: ROUTES.portfolio, label: 'Portfolio' },
-      { to: ROUTES.certificate, label: 'Certificate' },
-      { to: ROUTES.readiness, label: 'Career Readiness' }
+      { to: ROUTES.portfolio, labelKey: 'nav.portfolio' },
+      { to: ROUTES.certificate, labelKey: 'nav.certificate' },
+      { to: ROUTES.readiness, labelKey: 'nav.readiness' }
     ]
   },
   {
-    label: 'Launch',
+    labelKey: 'nav.launch',
     items: [
-      { to: ROUTES.jobHub, label: 'Job Opportunities', access: 'jobHub' }
+      { to: ROUTES.jobHub, labelKey: 'nav.jobHub', access: 'jobHub' }
     ]
   },
   {
-    label: 'Account',
+    labelKey: 'nav.account',
     items: [
-      { to: ROUTES.careers, label: 'Career Selection' },
-      { to: ROUTES.profile, label: 'Profile' },
-      { to: ROUTES.notifications, label: 'Notifications' },
-      { to: ROUTES.security, label: 'Security' }
+      { to: ROUTES.careers, labelKey: 'nav.careerSelection' },
+      { to: ROUTES.profile, labelKey: 'nav.profile' },
+      { to: ROUTES.notifications, labelKey: 'nav.notifications' },
+      { to: ROUTES.security, labelKey: 'nav.security' }
     ]
   }
 ]
@@ -101,11 +103,13 @@ function NavItem({
   lockHint,
   onNavigate
 }: {
-  item: { to: string; label: string; access?: NavAccess }
+  item: { to: string; labelKey: string; access?: NavAccess }
   locked?: boolean
   lockHint?: string
   onNavigate?: () => void
 }): React.JSX.Element {
+  const { t } = useTranslation()
+
   if (locked) {
     return (
       <div
@@ -114,10 +118,10 @@ function NavItem({
         className="flex cursor-not-allowed select-none items-center rounded-md py-2 pl-3 pr-2.5 text-sm text-surface/35"
       >
         <span className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="truncate">{item.label}</span>
+          <span className="truncate">{t(item.labelKey)}</span>
           <span className="ml-auto flex shrink-0 items-center gap-1 text-[10px] font-medium uppercase tracking-[0.08em] text-surface/25">
             <Icon name="lock" className="h-3.5 w-3.5" />
-            <span className="hidden lg:inline">Locked</span>
+            <span className="hidden lg:inline">{t('common.locked')}</span>
           </span>
         </span>
       </div>
@@ -145,7 +149,7 @@ function NavItem({
             }`}
           />
           <span className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="truncate">{item.label}</span>
+            <span className="truncate">{t(item.labelKey)}</span>
           </span>
         </>
       )}
@@ -155,6 +159,7 @@ function NavItem({
 
 function NavGroups({ onNavigate }: { onNavigate?: () => void }): React.JSX.Element {
   const location = useLocation()
+  const { t } = useTranslation()
   const { gate } = useSimulationGate(location.pathname)
   const certificateRefreshKey =
     location.pathname === ROUTES.certificate || location.pathname === ROUTES.jobHub
@@ -165,9 +170,9 @@ function NavGroups({ onNavigate }: { onNavigate?: () => void }): React.JSX.Eleme
   return (
     <>
       {NAV_GROUPS.map((group) => (
-        <div key={group.label}>
+        <div key={group.labelKey}>
           <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-surface/35">
-            {group.label}
+            {t(group.labelKey)}
           </p>
           <ul className="space-y-0.5">
             {group.items.map((item) => {
@@ -179,8 +184,8 @@ function NavGroups({ onNavigate }: { onNavigate?: () => void }): React.JSX.Eleme
               const lockHint =
                 item.access === 'jobHub'
                   ? certificate.loading
-                    ? 'Checking your certificate…'
-                    : 'Earn your career certificate to unlock the Career Bridge.'
+                    ? t('nav.checkingCertificate')
+                    : t('nav.jobHubLocked')
                   : navLockHint(item.access, gate)
               return (
                 <li key={item.to}>
@@ -202,6 +207,7 @@ function NavGroups({ onNavigate }: { onNavigate?: () => void }): React.JSX.Eleme
 
 export function AuthLayout(): React.JSX.Element {
   const status = useSessionStore((s) => s.status)
+  const { t } = useTranslation()
 
   if (status === 'authenticated') {
     return <Navigate to={ROUTES.dashboard} replace />
@@ -218,8 +224,9 @@ export function AuthLayout(): React.JSX.Element {
           </Link>
           <div className="flex items-center gap-3">
             <NavLink to={ROUTES.landing} className="text-sm text-primary/55 transition-colors hover:text-primary">
-              Home
+              {t('common.home')}
             </NavLink>
+            <LanguageToggle />
           </div>
         </div>
       </header>
@@ -235,6 +242,7 @@ export function AppShellLayout(): React.JSX.Element {
   const user = useSessionStore((s) => s.user)
   const navigate = useNavigate()
   const location = useLocation()
+  const { t } = useTranslation()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const isCoursePlayer = location.pathname === ROUTES.learn
@@ -319,6 +327,12 @@ export function AppShellLayout(): React.JSX.Element {
         </nav>
 
         <div className="hidden border-t border-surface/10 p-3 lg:block">
+          <div className="mb-2 flex items-center justify-between px-1">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-surface/35">
+              {t('language.switch')}
+            </span>
+            <LanguageToggle tone="dark" />
+          </div>
           <Button
             variant="ghost"
             size="sm"
@@ -326,7 +340,7 @@ export function AppShellLayout(): React.JSX.Element {
             className="w-full justify-start text-surface/70 hover:bg-surface/10 hover:text-surface"
           >
             <Icon name="log-out" className="h-4 w-4" />
-            Sign out
+            {t('common.signOut')}
           </Button>
         </div>
       </aside>
@@ -378,6 +392,12 @@ export function AppShellLayout(): React.JSX.Element {
                   <span className="truncate text-xs text-surface/60">{user.displayName}</span>
                 </Link>
               ) : null}
+              <div className="mb-2 flex items-center justify-between px-1">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-surface/35">
+                  {t('language.switch')}
+                </span>
+                <LanguageToggle tone="dark" />
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
@@ -385,7 +405,7 @@ export function AppShellLayout(): React.JSX.Element {
                 className="w-full justify-start text-surface/70 hover:bg-surface/10 hover:text-surface"
               >
                 <Icon name="log-out" className="h-4 w-4" />
-                Sign out
+                {t('common.signOut')}
               </Button>
             </div>
           </div>
@@ -407,11 +427,12 @@ export function AppShellLayout(): React.JSX.Element {
               <Icon name="menu" className="h-5 w-5" />
             </button>
             <p className="hidden truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/45 md:block">
-              Career Learning — Professional Simulation
+              {t('nav.tagline')}
             </p>
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+            <LanguageToggle />
             {/* Collapsible sidebar toggle button (desktop only) */}
             <button
               type="button"

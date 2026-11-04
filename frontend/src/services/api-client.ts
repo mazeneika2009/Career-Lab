@@ -1,4 +1,5 @@
 import { getSessionAccessToken, useSessionStore } from '../store/sessionStore'
+import { getLanguage } from '../i18n'
 import type { AuthResponse } from '../types/api'
 import { getCookieValue, randomRequestId } from '../utils/cookies'
 
@@ -72,7 +73,8 @@ async function execute<T>(path: string, options: RequestOptions): Promise<T> {
   const { method = 'GET', body, signal, auth = true, replay = false } = options
   const headers: Record<string, string> = {
     Accept: 'application/json',
-    'X-Request-Id': randomRequestId()
+    'X-Request-Id': randomRequestId(),
+    'X-Language': getLanguage()
   }
 
   if (body !== undefined) headers['Content-Type'] = 'application/json'

@@ -11,6 +11,12 @@ import {
 } from '../utils/supabase.js'
 import type { Assignment, Chapter, Exam, Prisma } from '@prisma/client'
 import { pickChapterForAssignment } from '../content/assignment-routing.js'
+import {
+  practicalEnvironmentFor,
+  starterCodeForEnvironment,
+  type PracticalEnvironment
+} from '../content/practical-environments.js'
+import { isLocalQaUnlocked } from '../config/local-qa.js'
 
 export type LearningStepKey = 'content' | 'theory' | 'practical' | 'assignment'
 export type LessonCurrentStep = LearningStepKey | 'complete'
@@ -96,6 +102,7 @@ export interface PracticalExamSpec {
   requirements: string[]
   expectedOutput: string
   rubric: Array<{ skill: string; weight: number; criteria: string }>
+  environment: PracticalEnvironment
   language: string
   languageLabel: string
   starterCode: string
@@ -151,125 +158,6 @@ function bestScore(exam: Exam & { attempts: Array<{ score: number | null }> }): 
 
 function passed(exam: { attempts: Array<{ passed: boolean | null }> }): boolean {
   return exam.attempts.some((attempt) => attempt.passed === true)
-}
-
-function languageForCareer(careerSlug: string): { language: string; languageLabel: string } {
-  const slug = careerSlug.toLowerCase()
-  if (/(data|ai-|machine|deep-|nlp|vision|scientist|analyst)/.test(slug)) {
-    return { language: 'python', languageLabel: 'Python' }
-  }
-  if (slug.includes('database') || slug.includes('bi-developer')) {
-    return { language: 'sql', languageLabel: 'SQL' }
-  }
-  if (slug.includes('android')) return { language: 'kotlin', languageLabel: 'Kotlin' }
-  if (slug.includes('ios')) return { language: 'swift', languageLabel: 'Swift' }
-  if (slug.includes('flutter')) return { language: 'dart', languageLabel: 'Dart' }
-  if (/(designer|marketing|writer|artist|editor|game-designer)/.test(slug)) {
-    return { language: 'html', languageLabel: 'HTML / CSS' }
-  }
-  if (/(backend|full-stack|node|cloud|devops|security|network|system|qa|automation)/.test(slug)) {
-    return { language: 'typescript', languageLabel: 'TypeScript' }
-  }
-  return { language: 'javascript', languageLabel: 'JavaScript' }
-}
-
-function starterCodeFor(language: string, lessonTitle: string, requirements: string[]): string {
-  const lines = requirements.slice(0, 6)
-  switch (language) {
-    case 'python':
-      return [
-        `# Practical exam: ${lessonTitle}`,
-        '# Implement each requirement and add a short usage example at the bottom.',
-        ...lines.map((line) => `# - ${line}`),
-        '',
-        'def solve(input_data):',
-        '    """Return a working result for the lesson brief."""',
-        '    # TODO: implement the required behaviour',
-        '    raise NotImplementedError',
-        '',
-        '',
-        'if __name__ == "__main__":',
-        '    print(solve(None))'
-      ].join('\n')
-    case 'sql':
-      return [
-        `-- Practical exam: ${lessonTitle}`,
-        ...lines.map((line) => `-- - ${line}`),
-        '',
-        'WITH prepared AS (',
-        '  SELECT *',
-        '  FROM your_table',
-        ')',
-        'SELECT *',
-        'FROM prepared;',
-        '-- TODO: replace with the query that satisfies each requirement.'
-      ].join('\n')
-    case 'html':
-      return [
-        `<!-- Practical exam: ${lessonTitle} -->`,
-        ...lines.map((line) => `<!-- - ${line} -->`),
-        '',
-        '<main>',
-        '  <h1>Your solution</h1>',
-        '  <!-- TODO: build the required interface and behaviour -->',
-        '</main>'
-      ].join('\n')
-    case 'kotlin':
-      return [
-        `// Practical exam: ${lessonTitle}`,
-        ...lines.map((line) => `// - ${line}`),
-        '',
-        'fun solve(input: Any?): Any? {',
-        '    // TODO: implement the required behaviour',
-        '    return null',
-        '}'
-      ].join('\n')
-    case 'swift':
-      return [
-        `// Practical exam: ${lessonTitle}`,
-        ...lines.map((line) => `// - ${line}`),
-        '',
-        'func solve(_ input: Any?) -> Any? {',
-        '    // TODO: implement the required behaviour',
-        '    return nil',
-        '}'
-      ].join('\n')
-    case 'dart':
-      return [
-        `// Practical exam: ${lessonTitle}`,
-        ...lines.map((line) => `// - ${line}`),
-        '',
-        'Object? solve(Object? input) {',
-        '  // TODO: implement the required behaviour',
-        '  return null;',
-        '}'
-      ].join('\n')
-    case 'typescript':
-      return [
-        `// Practical exam: ${lessonTitle}`,
-        ...lines.map((line) => `// - ${line}`),
-        '',
-        'type Result = { ok: boolean; data?: unknown }',
-        '',
-        'export function solve(input: unknown): Result {',
-        '  // TODO: implement the required behaviour',
-        '  throw new Error("Not implemented")',
-        '}'
-      ].join('\n')
-    default:
-      return [
-        `// Practical exam: ${lessonTitle}`,
-        ...lines.map((line) => `// - ${line}`),
-        '',
-        'function solve(input) {',
-        '  // TODO: implement the required behaviour',
-        '  throw new Error("Not implemented")',
-        '}',
-        '',
-        '// Add a short usage example below.',
-        '// console.log(solve(/* sample input */))'
-      ].join('\n')
-  }
 }
 
 function fallbackQuiz(chapter: ChapterWithTopics): unknown[] {
@@ -344,17 +232,26 @@ async function ensureChapterAssessments(
       objectives.length > 0
         ? [...new Set(objectives)].slice(0, 6)
         : chapter.topics.map((topic) => `Demonstrate the key skill from ${topic.title}.`).slice(0, 6)
-    const { language, languageLabel } = languageForCareer(career.slug)
+    const profile = practicalEnvironmentFor({ slug: career.slug })
+    const { environment, language, languageLabel } = profile
     const expectedOutput =
       typeof templateSpec?.expectedOutput === 'string' && templateSpec.expectedOutput
         ? templateSpec.expectedOutput
-        : 'A runnable solution plus a short note explaining how to verify it.'
+        : environment === 'design'
+          ? 'A polished visual deliverable with a short rationale explaining the composition, colour and accessibility decisions.'
+          : environment === 'network'
+            ? 'A working network topology with configuration notes and terminal verification evidence.'
+            : environment === 'business'
+              ? 'A complete business plan or campaign brief with objectives, audience, channels, timeline and measurable KPIs.'
+              : environment === 'writing'
+                ? 'A publication-ready document with clear structure, accurate steps and verification guidance.'
+                : 'A runnable solution plus a short note explaining how to verify it.'
     const brief =
       `Apply the lesson "${chapter.title}" in a hands-on task. ` +
-      `Work in ${languageLabel}; the reviewer checks each requirement against your submitted code. ` +
+      `Work in the ${languageLabel.toLowerCase()}; the reviewer checks each requirement against your submitted artefact. ` +
       (typeof templateSpec?.brief === 'string' && templateSpec.brief
         ? `Career context: ${templateSpec.brief.slice(0, 280)}`
-        : 'Keep the solution small enough to finish in one sitting and explicit enough to review.')
+        : 'Keep the deliverable small enough to finish in one sitting and explicit enough to review.')
     const rubric = requirements.map((requirement, index) => ({
       skill: chapter.topics[index]?.title ?? `Requirement ${index + 1}`,
       weight: Math.max(1, Math.round(100 / requirements.length)),
@@ -365,9 +262,15 @@ async function ensureChapterAssessments(
       requirements,
       expectedOutput,
       rubric,
+      environment,
       language,
       languageLabel,
-      starterCode: starterCodeFor(language, chapter.title, requirements),
+      starterCode: starterCodeForEnvironment({
+        environment,
+        language,
+        lessonTitle: chapter.title,
+        requirements
+      }),
       lessonTitle: chapter.title,
       objectives
     }
@@ -628,10 +531,11 @@ function buildLesson(
   const assignmentCompleted =
     assignmentPersisted?.status === 'completed' || assignment.completed
 
-  const contentUnlocked = previousLessonComplete
-  const theoryUnlocked = contentUnlocked && contentCompleted
-  const practicalUnlocked = theoryUnlocked && theoryCompleted
-  const assignmentUnlocked = practicalUnlocked && practicalCompleted
+  const qa = isLocalQaUnlocked()
+  const contentUnlocked = qa || previousLessonComplete
+  const theoryUnlocked = qa || (contentUnlocked && contentCompleted)
+  const practicalUnlocked = qa || (theoryUnlocked && theoryCompleted)
+  const assignmentUnlocked = qa || (practicalUnlocked && practicalCompleted)
 
   const content: LearningFlowStep = {
     key: 'content',
@@ -717,7 +621,7 @@ function buildLesson(
       title: topic.title,
       minutes: topic.minutes,
       status: topic.progress[0]?.status ?? 'not_started',
-      locked: !contentUnlocked
+      locked: !contentUnlocked && !isLocalQaUnlocked()
     })),
     content,
     theory: {
@@ -749,7 +653,7 @@ function buildLesson(
       submissionCount: assignment.submissions.length,
       latestSubmittedAt: assignment.submissions[0]?.submittedAt.toISOString() ?? null
     },
-    unlocked: contentUnlocked,
+    unlocked: qa || contentUnlocked,
     completed: lessonCompleted,
     status: lessonCompleted ? 'completed' : contentUnlocked ? 'in_progress' : 'locked',
     currentStep
@@ -959,6 +863,7 @@ export async function assertLessonContentAccess(
   chapterPublicId: string
 ): Promise<void> {
   const { lesson } = await flowLesson(userId, userPublicId, chapterPublicId)
+  if (isLocalQaUnlocked()) return
   if (!lesson.content.unlocked) {
     throw new AppError(
       403,
@@ -990,6 +895,7 @@ export async function assertExamAccess(
   })
   if (!chapter) throw AppError.notFound('Lesson not found.')
   const { lesson } = await flowLesson(userId, userPublicId, chapter.publicId)
+  if (isLocalQaUnlocked()) return lesson
   const step = exam.kind === 'theory' ? lesson.theory.step : lesson.practical.step
   if (!step.unlocked) {
     throw new AppError(403, 'STEP_LOCKED', step.lockReason ?? 'This step is locked.')
@@ -1019,6 +925,7 @@ export async function assertAssignmentAccess(
   })
   if (!chapter) throw AppError.notFound('Lesson not found.')
   const { lesson } = await flowLesson(userId, userPublicId, chapter.publicId)
+  if (isLocalQaUnlocked()) return lesson
   if (!lesson.assignment.step.unlocked) {
     throw new AppError(
       403,

@@ -18,6 +18,31 @@ import {
 } from './learning-flow.service.js'
 import { reviewCode } from './ai-grader.service.js'
 import { buildTheoryStudyHints, type TheoryStudyHint } from './theory-hint.service.js'
+import {
+  practicalEnvironmentFor,
+  starterCodeForEnvironment,
+  type PracticalEnvironment
+} from '../content/practical-environments.js'
+
+const PRACTICAL_ENVIRONMENTS: PracticalEnvironment[] = [
+  'code',
+  'database',
+  'design',
+  'network',
+  'ai',
+  'business',
+  'writing'
+]
+
+function isPracticalEnvironment(value: unknown): value is PracticalEnvironment {
+  return typeof value === 'string' && (PRACTICAL_ENVIRONMENTS as string[]).includes(value)
+}
+
+function asFeedbackRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
 
 // ---------------------------------------------------------------------------
 // Practice
@@ -160,6 +185,11 @@ export async function listExams(userId: bigint, kind: 'theory' | 'practical') {
     exams: exams
       .sort((a, b) => (a.chapter?.order ?? 99) - (b.chapter?.order ?? 99))
       .map((e) => {
+        const rawSpec = (e.questions ?? {}) as Partial<PracticalExamSpec>
+        const profile = practicalEnvironmentFor({
+          slug: active.career.slug,
+          category: active.career.category
+        })
         const submitted = e.attempts.filter((attempt) => attempt.submittedAt !== null)
         const scored = submitted
           .map((attempt) => attempt.score)
@@ -175,6 +205,13 @@ export async function listExams(userId: bigint, kind: 'theory' | 'practical') {
           coverage: e.coverage,
           passScore: e.passScore,
           durationMin: e.durationMin,
+          environment: isPracticalEnvironment(rawSpec.environment)
+            ? rawSpec.environment
+            : profile.environment,
+          languageLabel:
+            typeof rawSpec.languageLabel === 'string' && rawSpec.languageLabel
+              ? rawSpec.languageLabel
+              : profile.languageLabel,
           chapter: e.chapter ? { title: e.chapter.title, stage: e.chapter.stage } : null,
           completed,
           status: completed ? 'completed' : submitted.length > 0 ? 'attempted' : 'not_started',
@@ -269,7 +306,11 @@ export async function getExam(userId: bigint, userPublicId: string, examPublicId
   }
 
   const raw = (exam.questions ?? {}) as Partial<PracticalExamSpec>
-  const fallbackLanguage = 'javascript'
+  const profile = practicalEnvironmentFor({
+    slug: active.career.slug,
+    category: active.career.category
+  })
+  const environment = isPracticalEnvironment(raw.environment) ? raw.environment : profile.environment
   const requirements = Array.isArray(raw.requirements)
     ? raw.requirements.filter((item): item is string => typeof item === 'string')
     : []
@@ -287,6 +328,21 @@ export async function getExam(userId: bigint, userPublicId: string, examPublicId
     : null
   const evaluationMatchesAttempt =
     evaluation !== null && reviewAttempt !== null && evaluation.overallScore === reviewAttempt.score
+  const persistedFeedback = asFeedbackRecord(reviewAttempt?.feedback)
+  const fallbackFeedback =
+    evaluationMatchesAttempt && evaluation
+      ? {
+          summary: evaluation.verdict,
+          strengths: asStringArray(evaluation.strengths),
+          improvements: asStringArray(evaluation.recommendations),
+          missingRequirements: [
+            ...asStringArray(evaluation.weaknesses),
+            ...asStringArray(evaluation.errorNotes)
+          ].slice(0, 8),
+          requirementResults: []
+        }
+      : null
+  const reviewFeedback = persistedFeedback ?? fallbackFeedback
   return {
     publicId: exam.publicId,
     kind: exam.kind,
@@ -305,19 +361,9 @@ export async function getExam(userId: bigint, userPublicId: string, examPublicId
           passed: reviewAttempt.passed === true,
           submittedAt: reviewAttempt.submittedAt,
           code: typeof reviewAttempt.answers === 'string' ? reviewAttempt.answers : null,
+          language: reviewAttempt.language ?? (typeof raw.language === 'string' ? raw.language : profile.language),
           evaluationPublicId: evaluationMatchesAttempt ? evaluation.publicId : null,
-          feedback: evaluationMatchesAttempt
-            ? {
-                summary: evaluation.verdict,
-                strengths: asStringArray(evaluation.strengths),
-                improvements: asStringArray(evaluation.recommendations),
-                missingRequirements: [
-                  ...asStringArray(evaluation.weaknesses),
-                  ...asStringArray(evaluation.errorNotes)
-                ].slice(0, 8),
-                requirementResults: []
-              }
-            : null
+          feedback: reviewFeedback
         }
       : null,
     brief:
@@ -330,13 +376,21 @@ export async function getExam(userId: bigint, userPublicId: string, examPublicId
         ? raw.expectedOutput
         : 'A runnable solution plus a short note explaining how to verify it.',
     rubric,
-    language: typeof raw.language === 'string' && raw.language ? raw.language : fallbackLanguage,
+    environment,
+    language: typeof raw.language === 'string' && raw.language ? raw.language : profile.language,
     languageLabel:
-      typeof raw.languageLabel === 'string' && raw.languageLabel ? raw.languageLabel : 'Code',
+      typeof raw.languageLabel === 'string' && raw.languageLabel
+        ? raw.languageLabel
+        : profile.languageLabel,
     starterCode:
       typeof raw.starterCode === 'string' && raw.starterCode
         ? raw.starterCode
-        : '// Implement the requirements for this lesson.\n',
+        : starterCodeForEnvironment({
+            environment,
+            language: typeof raw.language === 'string' && raw.language ? raw.language : profile.language,
+            lessonTitle,
+            requirements
+          }),
     lessonTitle,
     lessonNumber,
     chapterPublicId,
@@ -520,12 +574,20 @@ export async function submitPracticalExam(
   userPublicId: string,
   examPublicId: string,
   submission: string,
-  language?: string
+  language?: string,
+  responseLanguage: 'en' | 'ar' = 'en'
 ) {
   const active = await requireActiveCareer(userId)
   const exam = await prisma.exam.findUnique({ where: { publicId: examPublicId } })
   if (!exam || exam.careerId !== active.career.id || exam.kind !== 'practical') {
     throw AppError.notFound('Practical exam not found.')
+  }
+  const completedAttempt = await prisma.examAttempt.findFirst({
+    where: { examId: exam.id, userId, submittedAt: { not: null }, passed: true },
+    select: { publicId: true }
+  })
+  if (completedAttempt) {
+    throw new AppError(409, 'PRACTICAL_EXAM_COMPLETED', 'This practical exam has already been completed.')
   }
   const lesson = await assertExamAccess(userId, userPublicId, exam)
 
@@ -545,10 +607,20 @@ export async function submitPracticalExam(
         ? spec.language
         : 'javascript'
 
+  const reviewProfile = practicalEnvironmentFor({
+    slug: active.career.slug,
+    category: active.career.category
+  })
+  const environment = isPracticalEnvironment(spec.environment)
+    ? spec.environment
+    : reviewProfile.environment
   const review = await reviewCode({
     lessonTitle: lesson.title,
     stage: lesson.stage,
     language: resolvedLanguage,
+    environment,
+    responseLanguage,
+
     brief:
       typeof spec.brief === 'string' && spec.brief
         ? spec.brief
@@ -563,6 +635,15 @@ export async function submitPracticalExam(
   })
   const passed = review.score >= exam.passScore && review.passed
 
+  const feedback = {
+    summary: review.summary,
+    strengths: review.strengths,
+    improvements: review.improvements,
+    missingRequirements: review.missingRequirements,
+    requirementResults: review.requirementResults,
+    gradedBy: review.gradedBy,
+    responseLanguage
+  }
   const saved = await savePracticalSubmission({
     userPublicId,
     careerSlug: active.career.slug,
@@ -572,14 +653,7 @@ export async function submitPracticalExam(
     code,
     score: review.score,
     passed,
-    feedback: {
-      summary: review.summary,
-      strengths: review.strengths,
-      improvements: review.improvements,
-      missingRequirements: review.missingRequirements,
-      requirementResults: review.requirementResults,
-      gradedBy: review.gradedBy
-    },
+    feedback,
     gradedBy: review.gradedBy,
     model: review.model
   })
@@ -592,6 +666,8 @@ export async function submitPracticalExam(
       answers: code,
       score: review.score,
       passed,
+      feedback: feedback as unknown as Prisma.InputJsonValue,
+      language: resolvedLanguage,
       startedAt: new Date(),
       submittedAt: new Date()
     }
@@ -642,6 +718,7 @@ export async function submitPracticalExam(
     attemptPublicId: attempt.publicId,
     submissionPublicId: saved.publicId,
     evaluationPublicId: evaluation.publicId,
+    environment,
     score: review.score,
     passed,
     feedback: {

@@ -3,6 +3,7 @@ import { AppError } from '../utils/http.js'
 import { ulid } from '../utils/ids.js'
 import { INTERVIEW_PASS_SCORE } from '../config/constants.js'
 import { requireActiveCareer, notify } from './domain.helpers.js'
+import { isLocalQaUnlocked } from '../config/local-qa.js'
 
 // ---------------------------------------------------------------------------
 // Portfolio — assembled automatically from completed, eligible work.
@@ -190,6 +191,31 @@ export async function computeCertificateEligibility(
 /** Issue the certificate when every requirement is met. Students cannot self-issue. */
 export async function getCertificateStatus(userId: bigint) {
   const active = await requireActiveCareer(userId)
+  const profile = await prisma.userProfile.findUnique({
+    where: { userId },
+    select: { displayName: true }
+  })
+  const studentName = profile?.displayName?.trim() || 'Career Lab Graduate'
+  const careerName = active.career.name
+  const careerSlug = active.career.slug
+
+  if (isLocalQaUnlocked()) {
+    return {
+      status: 'issued' as const,
+      certificate: {
+        publicId: 'local-qa-certificate',
+        userId,
+        careerId: active.career.id,
+        serial: `CL-LOCAL-${active.career.slug.toUpperCase()}`,
+        issuedAt: new Date(),
+        requirementsSnapshot: {},
+        studentName,
+        careerName,
+        careerSlug
+      }
+    }
+  }
+
   const existing = await prisma.certificate.findUnique({
     where: { userId_careerId: { userId, careerId: active.career.id } }
   })
@@ -213,7 +239,10 @@ export async function getCertificateStatus(userId: bigint) {
         `Congratulations — you satisfied every requirement. Serial ${created.serial}.`,
         '/certificate'
       )
-      return { status: 'issued' as const, certificate: created }
+      return {
+        status: 'issued' as const,
+        certificate: { ...created, studentName, careerName, careerSlug }
+      }
     }
     return {
       status: 'not_eligible' as const,
@@ -221,7 +250,10 @@ export async function getCertificateStatus(userId: bigint) {
     }
   }
 
-  return { status: 'issued' as const, certificate: existing }
+  return {
+    status: 'issued' as const,
+    certificate: { ...existing, studentName, careerName, careerSlug }
+  }
 }
 
 // ---------------------------------------------------------------------------

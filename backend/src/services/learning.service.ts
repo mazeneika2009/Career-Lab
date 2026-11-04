@@ -8,6 +8,7 @@ import {
   type LearningFlow
 } from './learning-flow.service.js'
 import { recomputeSkillProgress } from './progress.service.js'
+import { isLocalQaUnlocked } from '../config/local-qa.js'
 import type { Career, Chapter, Topic } from '@prisma/client'
 
 function asStringArray(value: unknown): string[] {
@@ -137,6 +138,7 @@ export async function getLearningPath(userId: bigint) {
     }
   })
 
+  const qa = isLocalQaUnlocked()
   let previousComplete = true
   return {
     career: { name: active.career.name, slug: active.career.slug, pathSummary: active.career.pathSummary },
@@ -144,7 +146,7 @@ export async function getLearningPath(userId: bigint) {
       let priorIncomplete = false
       const topics = ch.topics.map((t) => {
         const status = t.progress[0]?.status ?? 'not_started'
-        const unlocked = previousComplete && !priorIncomplete
+        const unlocked = qa || (previousComplete && !priorIncomplete)
         if (status !== 'completed') priorIncomplete = true
         return {
           publicId: t.publicId,

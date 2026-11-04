@@ -1,5 +1,20 @@
 # MySQL → Supabase migration
 
+## Practical exam schema update
+
+The Prisma `ExamAttempt` model stores practical review feedback and the submitted
+language in MySQL. Apply the additive schema update before deploying code that
+reads or writes those fields:
+
+```powershell
+npm run apply:practical-exam-schema
+```
+
+The script uses the configured `DATABASE_URL`, adds only missing nullable
+columns to `exam_attempts`, verifies both columns, and is safe to rerun. It does
+not modify existing attempt records. The Supabase fresh-schema DDL includes the
+same fields; this script applies to the authoritative MySQL database.
+
 `migrate-to-supabase.ts` copies the Career Lab MySQL database into the Supabase
 Postgres project. It discovers tables from MySQL, orders them by foreign-key
 dependencies, normalizes MySQL-specific values, and upserts every row through

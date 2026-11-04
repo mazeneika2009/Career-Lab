@@ -3,6 +3,7 @@ import { ROUTES } from '../../constants/routes'
 import { INTERVIEW_PASS_SCORE } from '../../constants/simulation'
 import { useSimulationGate } from '../../hooks/useSimulationGate'
 import { isNoCareerError } from '../../hooks/useAsync'
+import { isLocalQaMode } from '../../utils/localQa'
 import type { SimulationGateView } from '../../types/domain'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from './primitives'
 
@@ -48,6 +49,7 @@ export function SimulationGate({
 }): React.JSX.Element {
   const { gate, loading, error } = useSimulationGate()
 
+  if (isLocalQaMode()) return <>{children}</>
   if (loading) return <LoadingState />
 
   if (error) {

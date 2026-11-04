@@ -5,6 +5,7 @@ import type { InterviewAnswerReview, InterviewSessionView, InterviewStage } from
 import { useAsync } from '../../hooks/useAsync'
 import { useSimulationGate } from '../../hooks/useSimulationGate'
 import { invalidateWorkplaceGate } from '../../store/workplaceGateStore'
+import { isLocalQaMode } from '../../utils/localQa'
 import { careerGateOrError } from './LearningPathPage'
 import { ROUTES } from '../../constants/routes'
 import { INTERVIEW_PASS_SCORE } from '../../constants/simulation'
@@ -58,7 +59,12 @@ export default function InterviewPage({ stage }: { stage: InterviewStage }): Rea
 
   const copy = STAGE_COPY[stage]
 
-  if (stage === 'technical' && gateState.gate && gateState.gate.hr.status !== 'passed') {
+  if (
+    !isLocalQaMode() &&
+    stage === 'technical' &&
+    gateState.gate &&
+    gateState.gate.hr.status !== 'passed'
+  ) {
     const hr = gateState.gate.hr
     return (
       <div>

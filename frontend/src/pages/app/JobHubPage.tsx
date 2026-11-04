@@ -36,6 +36,14 @@ function postedAgo(value: string): string {
   return `Posted ${weeks}w ago`
 }
 
+function seniorityLabel(experienceLevel: string): string {
+  const level = experienceLevel.trim().toLowerCase()
+  if (level === 'internship' || level === 'entry level' || level === 'junior') return 'Junior'
+  if (level === 'associate' || level === 'mid level' || level === 'mid') return 'Mid'
+  if (level === 'senior level' || level === 'lead' || level === 'senior') return 'Senior'
+  return experienceLevel
+}
+
 export default function JobHubPage(): React.JSX.Element {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
@@ -141,7 +149,7 @@ export default function JobHubPage(): React.JSX.Element {
               type="search"
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Search roles, companies or skills…"
+              placeholder="Search roles or skills…"
               aria-label="Search jobs"
               className="w-full rounded-md border border-border bg-surface py-2 pl-9 pr-3 text-sm text-primary placeholder:text-primary/40 hover:border-primary/25 focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/20"
             />
@@ -259,7 +267,7 @@ export default function JobHubPage(): React.JSX.Element {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary/45">
-                      {job.companyName}
+                      {job.sourcePlatform}
                     </p>
                     <h2 className="mt-1 text-balance text-base font-semibold leading-snug tracking-tight text-primary">
                       {job.title}
@@ -296,9 +304,11 @@ export default function JobHubPage(): React.JSX.Element {
                     <Icon name="clock" className="h-3.5 w-3.5 text-accent/70" />
                     {job.employmentType}
                   </li>
-                  <li className="inline-flex items-center gap-1">
-                    <Icon name="bar-chart" className="h-3.5 w-3.5 text-accent/70" />
-                    {job.experienceLevel}
+                  <li
+                    title={`Experience: ${job.experienceLevel}`}
+                    className="inline-flex items-center rounded-full border border-accent/20 bg-accent/[0.06] px-2 py-0.5 text-[10px] font-semibold text-primary/70"
+                  >
+                    {seniorityLabel(job.experienceLevel)}
                   </li>
                 </ul>
 
@@ -310,7 +320,7 @@ export default function JobHubPage(): React.JSX.Element {
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                     <span className="font-medium text-primary/70">{job.salaryRange ?? 'Salary not listed'}</span>
                     <span className="text-primary/40">
-                      {job.sourcePlatform} · {postedAgo(job.postedAt)}
+                      {postedAgo(job.postedAt)}
                     </span>
                   </div>
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">

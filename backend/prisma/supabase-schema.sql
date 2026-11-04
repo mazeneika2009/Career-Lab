@@ -314,6 +314,8 @@ CREATE TABLE "exam_attempts" (
     "answers" JSONB,
     "score" INTEGER,
     "passed" BOOLEAN,
+    "feedback" JSONB,
+    "language" VARCHAR(40),
     "started_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "submitted_at" TIMESTAMP(3),
 
@@ -971,4 +973,3 @@ ALTER TABLE "notifications" ADD CONSTRAINT "notifications_user_id_fkey" FOREIGN 
 
 -- Ask PostgREST to reload its schema cache after the tables are created.
 NOTIFY pgrst, 'reload schema';
-

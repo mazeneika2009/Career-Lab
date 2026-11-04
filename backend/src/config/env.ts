@@ -14,7 +14,10 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 
   APP_WEB_URL: z.string().url().default('http://localhost:5173'),
+  APP_API_URL: z.string().url().default('http://localhost:4000'),
   CORS_ORIGINS: z.string().min(1).default('http://localhost:5173'),
+
+  LOCAL_QA_UNLOCK_ALL: booleanish.default('false'),
 
   DATABASE_URL: z.string().min(1),
 

@@ -15,6 +15,11 @@ function authUser(req: Request): AuthUser {
   return req.user as AuthUser
 }
 
+function responseLanguage(req: Request): 'en' | 'ar' {
+  const header = req.header('x-language') ?? req.header('accept-language') ?? ''
+  return header.trim().toLowerCase().startsWith('ar') ? 'ar' : 'en'
+}
+
 // Careers ---------------------------------------------------------------
 
 export async function listCareers(req: Request, res: Response): Promise<void> {
@@ -169,7 +174,8 @@ export async function submitPracticalExam(req: Request, res: Response): Promise<
     user.publicId,
     String(req.params.examPublicId),
     body.code ?? body.submission ?? '',
-    body.language
+    body.language,
+    responseLanguage(req)
   )
   res.status(201).json(successEnvelope(result))
 }

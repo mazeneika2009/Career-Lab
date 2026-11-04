@@ -1,4 +1,5 @@
 import { apiRequest } from '../services/api-client'
+import { useSessionStore } from '../store/sessionStore'
 import type { AuthResponse, MeView, SessionView, UserSnapshot } from '../types/api'
 
 export interface RegisterDto {
@@ -65,7 +66,15 @@ export const authApi = {
 export const usersApi = {
   me: () => apiRequest<MeView>('/users/me'),
   updateMe: (dto: { displayName?: string; timezone?: string }) =>
-    apiRequest<MeView>('/users/me', { method: 'PATCH', body: dto })
+    apiRequest<MeView>('/users/me', { method: 'PATCH', body: dto }),
+  deleteMe: async (confirmationName: string) => {
+    const result = await apiRequest<{ deleted: boolean }>('/users/me', {
+      method: 'DELETE',
+      body: { confirmationName }
+    })
+    useSessionStore.getState().clear()
+    return result
+  }
 }
 
 export type { AuthResponse, MeView, SessionView, UserSnapshot }

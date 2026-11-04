@@ -63,10 +63,13 @@ export function spaSecurityHeaders() {
         // - Vimeo's Player API loads from player.vimeo.com.
         scriptSrc: [
           "'self'",
+          'blob:',
+          "'wasm-unsafe-eval'",
           'https://www.youtube.com',
           'https://s.ytimg.com',
           'https://player.vimeo.com'
         ],
+        workerSrc: ["'self'", 'blob:'],
         // Allow inline styles for component libraries; restrict to trusted fonts.
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         // i.ytimg.com serves the fallback-card thumbnails; img.youtube.com is

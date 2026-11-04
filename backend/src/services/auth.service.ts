@@ -182,7 +182,7 @@ export async function register(dto: RegisterDto, meta: RequestMeta): Promise<{ e
       tokenHash: sha256Hex(rawToken),
       expiresAt: new Date(Date.now() + EMAIL_TOKEN_TTL_MS)
     })
-    return `${env.APP_WEB_URL}/verify-email?token=${rawToken}`
+    return `${env.APP_API_URL.replace(/\/$/, '')}/api/v1/auth/email/verify?token=${rawToken}`
   })
 
   writeAudit(
@@ -288,7 +288,7 @@ export async function resendVerification(
 
   void sendVerificationEmail(
     user.email,
-    `${env.APP_WEB_URL}/verify-email?token=${rawToken}`
+    `${env.APP_API_URL.replace(/\/$/, '')}/api/v1/auth/email/verify?token=${rawToken}`
   ).catch(() => undefined)
 }
 

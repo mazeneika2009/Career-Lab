@@ -135,6 +135,7 @@ npm run migrate:supabase       # upsert all tables and reset identity sequences
 Apply and verify the additional schemas separately:
 
 ```bash
+npm run apply:practical-exam-schema # add missing MySQL exam-attempt review columns
 npm run apply:progress-schema  # assessment_scores, skill_metrics, user_progress
 npm run apply:learning-schema  # learning_step_progress, practical_submissions,
                                # interview_verifications, workplace_progress

@@ -6,6 +6,7 @@ import type { CareerDef, InterviewQuestionDef } from './framework.js'
 import { CAREER_CATALOG, CAREER_SOURCE_PLATFORMS } from './catalog.js'
 import { resolveChapterVideos } from './curated-videos.js'
 import { pickChapterForAssignment } from './assignment-routing.js'
+import { practicalEnvironmentFor, starterCodeForEnvironment } from './practical-environments.js'
 
 function json(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue
@@ -344,6 +345,10 @@ export async function seedContentLibrary(prisma: PrismaClient): Promise<{ career
       }
 
       // Practical exam.
+      const practicalProfile = practicalEnvironmentFor({
+        slug: def.slug,
+        category: def.category
+      })
       await tx.exam.create({
         data: {
           publicId: ulid(),
@@ -357,7 +362,16 @@ export async function seedContentLibrary(prisma: PrismaClient): Promise<{ career
             brief: def.practicalExam.brief,
             requirements: def.practicalExam.requirements,
             expectedOutput: def.practicalExam.expectedOutput,
-            rubric: def.practicalExam.rubric
+            rubric: def.practicalExam.rubric,
+            environment: practicalProfile.environment,
+            language: practicalProfile.language,
+            languageLabel: practicalProfile.languageLabel,
+            starterCode: starterCodeForEnvironment({
+              environment: practicalProfile.environment,
+              language: practicalProfile.language,
+              lessonTitle: def.practicalExam.title,
+              requirements: def.practicalExam.requirements
+            })
           })
         }
       })

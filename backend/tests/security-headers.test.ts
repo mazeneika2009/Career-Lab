@@ -23,11 +23,13 @@ describe('content security policy', () => {
     expect(spaCsp.get('script-src')).toEqual(
       expect.arrayContaining([
         "'self'",
+        "'wasm-unsafe-eval'",
         'https://www.youtube.com',
         'https://s.ytimg.com',
         'https://player.vimeo.com'
       ])
     )
+    expect(spaCsp.get('script-src')).not.toContain("'unsafe-eval'")
     expect(spaCsp.get('frame-src')).toEqual(
       expect.arrayContaining([
         "'self'",

@@ -46,6 +46,8 @@ authRouter.post(
   controller.logoutAll
 )
 
+authRouter.get('/email/verify', rateLimiter('authSensitive'), controller.verifyEmailLink)
+
 authRouter.post(
   '/email/verify',
   rateLimiter('authSensitive'),

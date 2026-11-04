@@ -49,7 +49,8 @@ export const AUDIT_ACTIONS = {
   passwordReset: 'auth.password.reset',
   passwordChanged: 'auth.password.changed',
   sessionRevoked: 'auth.session.revoked',
-  profileUpdated: 'user.profile.updated'
+  profileUpdated: 'user.profile.updated',
+  accountDeleted: 'user.account.deleted'
 } as const
 
 export const ISSUER = 'career-lab'

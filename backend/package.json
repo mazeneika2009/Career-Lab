@@ -21,6 +21,7 @@
     "migrate:supabase:dry": "tsx scripts/migrate-to-supabase.ts --dry-run",
     "migrate:supabase:list": "tsx scripts/migrate-to-supabase.ts --list",
     "apply:learning-schema": "tsx scripts/apply-learning-schema.ts",
+    "apply:practical-exam-schema": "tsx scripts/apply-practical-exam-schema.ts",
     "apply:progress-schema": "tsx scripts/apply-progress-schema.ts",
     "sync:progress": "tsx scripts/sync-progress.ts",
     "db:push": "prisma db push",

@@ -5,6 +5,8 @@ interface MonacoCodeEditorProps {
   value: string
   language: string
   onChange: (value: string) => void
+  path?: string
+  theme?: 'light' | 'dark'
 }
 
 /**
@@ -16,15 +18,18 @@ interface MonacoCodeEditorProps {
 export default function MonacoCodeEditor({
   value,
   language,
-  onChange
+  onChange,
+  path,
+  theme = 'light'
 }: MonacoCodeEditorProps): React.JSX.Element {
   return (
     <Editor
       height="100%"
+      path={path}
       language={language}
       value={value}
       onChange={(next) => onChange(next ?? '')}
-      theme="career-lab"
+      theme={theme === 'dark' ? 'career-lab-dark' : 'career-lab'}
       loading={
         <div className="flex h-full items-center justify-center text-sm text-primary/50" role="status">
           Loading code editor…
@@ -57,6 +62,34 @@ export default function MonacoCodeEditor({
             'editorSuggestWidget.background': '#fffdf7',
             'editorSuggestWidget.border': '#ddd2bd',
             'editorGutter.background': '#fffdf7'
+          }
+        })
+        instance.editor.defineTheme('career-lab-dark', {
+          base: 'vs-dark',
+          inherit: true,
+          rules: [
+            { token: 'comment', foreground: '8fa39a', fontStyle: 'italic' },
+            { token: 'keyword', foreground: 'f0a07a' },
+            { token: 'string', foreground: '8fd0a9' },
+            { token: 'number', foreground: 'f3b27a' },
+            { token: 'type', foreground: '7fc6b1' }
+          ],
+          colors: {
+            'editor.background': '#0f1a17',
+            'editor.foreground': '#d8e5df',
+            'editorLineNumber.foreground': '#52665e',
+            'editorLineNumber.activeForeground': '#a9bfb5',
+            'editor.selectionBackground': '#e76f3c40',
+            'editor.inactiveSelectionBackground': '#e76f3c20',
+            'editor.lineHighlightBackground': '#ffffff08',
+            'editorCursor.foreground': '#e76f3c',
+            'editorIndentGuide.background1': '#2c3d3666',
+            'editorIndentGuide.activeBackground1': '#3b5148',
+            'editorWidget.background': '#14211d',
+            'editorWidget.border': '#2a3a34',
+            'editorSuggestWidget.background': '#14211d',
+            'editorSuggestWidget.border': '#2a3a34',
+            'editorGutter.background': '#0f1a17'
           }
         })
       }}

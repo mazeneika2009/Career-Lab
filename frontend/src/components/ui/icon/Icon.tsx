@@ -18,6 +18,9 @@ export type IconName =
   | 'clipboard-check'
   | 'terminal'
   | 'file-text'
+  | 'file-plus'
+  | 'folder-plus'
+  | 'edit'
   | 'message-square'
   | 'bar-chart'
   | 'milestone'
@@ -52,6 +55,7 @@ export type IconName =
   | 'graduation-cap'
   | 'lightbulb'
   | 'zap'
+  | 'trash'
   | 'lock'
   | 'calendar'
   | 'bookmark'
@@ -126,6 +130,28 @@ const ICONS = {
       <path d="M14 2v6h6" />
       <path d="M8 13h8" />
       <path d="M8 17h6" />
+    </>
+  ),
+  'file-plus': (
+    <>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+      <path d="M14 2v6h6" />
+      <path d="M12 12v6" />
+      <path d="M9 15h6" />
+    </>
+  ),
+  'folder-plus': (
+    <>
+      <path d="M4 4h5l2 3h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+      <path d="M2 10h20" />
+      <path d="M12 13v4" />
+      <path d="M10 15h4" />
+    </>
+  ),
+  edit: (
+    <>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
     </>
   ),
   'message-square': (
@@ -344,6 +370,15 @@ const ICONS = {
     </>
   ),
   zap: <path d="M13 2 3 14h8l-1 8 11-13h-8l1-7Z" />,
+  trash: (
+    <>
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="m19 6-1 14H6L5 6" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
+    </>
+  ),
   lock: (
     <>
       <rect x="4" y="10" width="16" height="11" rx="2" />

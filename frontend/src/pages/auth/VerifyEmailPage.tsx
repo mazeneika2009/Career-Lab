@@ -14,12 +14,29 @@ type VerifyState =
 export function VerifyEmailPage(): React.JSX.Element {
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token') ?? ''
+  const status = searchParams.get('status')
+  const redirectMessage = searchParams.get('message') ?? ''
+  const redirectExpired = searchParams.get('expired') === '1'
   const [state, setState] = useState<VerifyState>({ kind: 'loading' })
   const attempted = useRef(false)
 
   useEffect(() => {
     if (attempted.current) return
     attempted.current = true
+
+    if (status === 'success') {
+      setState({ kind: 'success' })
+      return
+    }
+
+    if (status === 'error') {
+      setState({
+        kind: 'error',
+        message: redirectMessage || 'Verification failed. Please try again.',
+        expired: redirectExpired
+      })
+      return
+    }
 
     if (!token) {
       setState({
@@ -39,7 +56,7 @@ export function VerifyEmailPage(): React.JSX.Element {
         const expired = error instanceof ApiError && error.status === 410
         setState({ kind: 'error', message, expired })
       })
-  }, [token])
+  }, [token, status, redirectMessage, redirectExpired])
 
   if (state.kind === 'loading') {
     return (

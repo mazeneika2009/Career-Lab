@@ -12,6 +12,7 @@ import {
   type InterviewVerification
 } from './interview-verification.service.js'
 import { mirrorWorkplaceState } from './workplace-progress.service.js'
+import { isLocalQaUnlocked } from '../config/local-qa.js'
 
 export type InterviewStageStatus = 'not_started' | 'in_progress' | 'passed' | 'failed'
 
@@ -100,6 +101,30 @@ export async function computeSimulationGate(
   careerId: bigint,
   careerSlug: string
 ): Promise<SimulationGate> {
+  if (isLocalQaUnlocked()) {
+    const passed: InterviewStageGate = {
+      status: 'passed',
+      score: 100,
+      sessionPublicId: null,
+      verified: true
+    }
+    return {
+      unlocked: true,
+      hr: passed,
+      technical: { ...passed },
+      workplace: {
+        companySimulation: true,
+        teamCommunication: true,
+        clientCommunication: true,
+        deadlines: true,
+        scenarios: true
+      },
+      companyName: null,
+      roleTitle: null,
+      simulationStarted: true
+    }
+  }
+
   const [sessions, state, verifications] = await Promise.all([
     prisma.interviewSession.findMany({
       where: { userId, careerId },

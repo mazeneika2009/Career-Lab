@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
 import { createApp } from '../src/create-app.js'
 import { createActiveUser, resetDb } from './helpers/db.js'
+import { prisma } from '../src/utils/prisma.js'
 
 vi.mock('../src/services/email.service.js', () => ({
   sendVerificationEmail: vi.fn(async () => {}),
@@ -19,9 +20,10 @@ beforeEach(async () => {
 
 describe('authorization matrix v1 (identity surface)', () => {
   it('anonymous callers are rejected on protected endpoints', async () => {
-    const cases: Array<{ method: 'get' | 'patch' | 'post'; path: string }> = [
+    const cases: Array<{ method: 'get' | 'patch' | 'post' | 'delete'; path: string }> = [
       { method: 'get', path: '/api/v1/users/me' },
       { method: 'patch', path: '/api/v1/users/me' },
+      { method: 'delete', path: '/api/v1/users/me' },
       { method: 'get', path: '/api/v1/auth/sessions' },
       { method: 'post', path: '/api/v1/auth/logout' }
     ]
@@ -32,7 +34,9 @@ describe('authorization matrix v1 (identity surface)', () => {
           ? request(app).get(c.path)
           : c.method === 'patch'
             ? request(app).patch(c.path)
-            : request(app).post(c.path)
+            : c.method === 'delete'
+              ? request(app).delete(c.path)
+              : request(app).post(c.path)
       const res = await pending
       expect(res.status, `${c.method.toUpperCase()} ${c.path}`).toBe(401)
       expect(['UNAUTHENTICATED']).toContain(res.body.error.code)
@@ -113,6 +117,56 @@ describe('GET/PATCH /api/v1/users/me', () => {
       .set(auth)
       .send({ timezone: 'Mars/Olympus_Mons' })
     expect(badTz.status).toBe(400)
+  })
+
+  it('requires an exact profile name and preserves the account on mismatch', async () => {
+    const user = await createActiveUser(
+      'delete-mismatch@example.com',
+      undefined,
+      'Ada Lovelace'
+    )
+    const login = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: user.email, password: user.password })
+    const token = login.body.data.accessToken
+
+    const response = await request(app)
+      .delete('/api/v1/users/me')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ confirmationName: 'ada lovelace' })
+
+    expect(response.status).toBe(400)
+    expect(response.body.error.message).toContain('exact profile name')
+    expect(await prisma.user.findUnique({ where: { id: user.internalId } })).not.toBeNull()
+    expect(await prisma.userProfile.findUnique({ where: { userId: user.internalId } })).not.toBeNull()
+  })
+
+  it('deletes the authenticated account, cascades its records and preserves an audit event', async () => {
+    const user = await createActiveUser(
+      'delete-account@example.com',
+      undefined,
+      'Ada Lovelace'
+    )
+    const login = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: user.email, password: user.password })
+    const token = login.body.data.accessToken
+
+    const response = await request(app)
+      .delete('/api/v1/users/me')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ confirmationName: 'Ada Lovelace' })
+
+    expect(response.status).toBe(200)
+    expect(response.body.data).toEqual({ deleted: true })
+    expect(await prisma.user.findUnique({ where: { id: user.internalId } })).toBeNull()
+    expect(await prisma.userProfile.findUnique({ where: { userId: user.internalId } })).toBeNull()
+    expect(await prisma.session.count({ where: { userId: user.internalId } })).toBe(0)
+    expect(
+      await prisma.auditLog.findFirst({
+        where: { actorId: user.publicId, action: 'user.account.deleted' }
+      })
+    ).not.toBeNull()
   })
 
   it('exposes health endpoints publicly', async () => {

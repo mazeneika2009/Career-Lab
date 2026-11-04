@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from '../../i18n'
 import { Icon, type IconName } from '../ui/icon/Icon'
 
 export function PageHeader({
@@ -61,6 +62,7 @@ export function Panel({
 }
 
 export function ProgressBar({ percent, label }: { percent: number; label?: string }): React.JSX.Element {
+  const { t } = useTranslation()
   const clamped = Math.max(0, Math.min(100, Math.round(percent)))
   return (
     <div>
@@ -70,7 +72,7 @@ export function ProgressBar({ percent, label }: { percent: number; label?: strin
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={clamped}
-        aria-label={label ? `${label} progress` : 'Progress'}
+        aria-label={label ? `${label} progress` : t('common.progress')}
       >
         <div
           className="h-full rounded-full bg-accent transition-[width] duration-500 ease-out"
@@ -116,7 +118,8 @@ const STATUS_TEXT_TONES: Record<string, string> = {
 
 /** Plain-text status label — deliberately not a pill, tag or indicator dot. */
 export function StatusText({ tone }: { tone: string }): React.JSX.Element {
-  const label = STATUS_LABELS[tone] ?? tone.replace(/_/g, ' ')
+  const { t } = useTranslation()
+  const label = STATUS_LABELS[tone] ? t(`status.${tone}`) : tone.replace(/_/g, ' ')
   const cls = STATUS_TEXT_TONES[tone] ?? 'text-primary/55'
   return <span className={`text-xs font-medium ${cls}`}>{label}</span>
 }
@@ -143,24 +146,26 @@ export function EmptyState({
 }
 
 export function LoadingState(): React.JSX.Element {
+  const { t } = useTranslation()
   return (
-    <div className="flex min-h-40 flex-col items-center justify-center gap-3" role="status" aria-label="Loading">
+    <div className="flex min-h-40 flex-col items-center justify-center gap-3" role="status" aria-label={t('common.loading')}>
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/15 border-t-accent" />
-      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/35">Loading</span>
+      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/35">{t('common.loading')}</span>
     </div>
   )
 }
 
 export function ErrorState({ error }: { error: unknown }): React.JSX.Element {
+  const { t } = useTranslation()
   const message =
     typeof error === 'object' && error !== null && 'message' in error
       ? String((error as { message: unknown }).message)
-      : 'Something went wrong.'
+      : t('common.somethingWrong')
   return (
     <div role="alert" className="flex items-start gap-3 rounded-lg border border-attention/40 bg-surface px-5 py-4">
       <Icon name="alert-triangle" className="mt-0.5 h-4 w-4 shrink-0 text-attention" />
       <div>
-        <p className="font-display text-sm font-semibold text-attention">Unable to load</p>
+        <p className="font-display text-sm font-semibold text-attention">{t('common.unableToLoad')}</p>
         <p className="mt-1 text-sm leading-relaxed text-primary/65">{message}</p>
       </div>
     </div>

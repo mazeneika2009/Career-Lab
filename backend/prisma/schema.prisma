@@ -433,6 +433,8 @@ model ExamAttempt {
   answers    Json?
   score      Int?
   passed     Boolean?
+  feedback   Json?
+  language   String?   @db.VarChar(40)
   startedAt  DateTime  @default(now()) @map("started_at")
   submittedAt DateTime? @map("submitted_at")
 

@@ -256,11 +256,25 @@ function pickSkills(skills: string[], offset: number, count: number): string[] {
   return picked
 }
 
+function stripSeniorityPrefix(title: string): string {
+  return title
+    .replace(/^(?:(?:junior|mid(?:[- ]level)?|senior|lead)\s+)+/i, '')
+    .trim()
+}
+
+function seniorityLabel(level: ExperienceLevel): 'Junior' | 'Mid' | 'Senior' {
+  if (level === 'Internship' || level === 'Entry level') return 'Junior'
+  if (level === 'Associate' || level === 'Mid level') return 'Mid'
+  return 'Senior'
+}
+
 export function buildJobCatalog(career: JobCatalogCareer): JobCatalogSpec[] {
-  const role = career.roleTitle || career.name
+  const role = stripSeniorityPrefix(career.roleTitle || career.name)
   return TEMPLATES.map((template) => {
     const skills = pickSkills(career.mainSkills, template.skillOffset, template.skillCount)
-    const title = template.title(role)
+    const title = `${seniorityLabel(template.experienceLevel)} ${stripSeniorityPrefix(
+      template.title(role)
+    )}`
     const skillPhrase = skills.length > 0 ? skills.join(', ') : career.mainSkills.slice(0, 3).join(', ')
     return {
       title,

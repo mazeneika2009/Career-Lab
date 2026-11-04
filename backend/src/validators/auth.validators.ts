@@ -61,6 +61,12 @@ export const updateMeSchema = z
   .strict()
   .refine((data) => Object.keys(data).length > 0, { message: 'No changes submitted.' })
 
+export const deleteMeSchema = z
+  .object({
+    confirmationName: z.string().min(1).max(120)
+  })
+  .strict()
+
 export const sessionIdParamSchema = z.object({
   sessionId: z.string().regex(ULID_PATTERN)
 })
